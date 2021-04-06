@@ -1,0 +1,16 @@
+{
+	"@metadata": {
+		"authors": [
+			"Eduardo Addad de Oliveira",
+<<<<<<< HEAD
+=======
+			"Eduardoaddad",
+>>>>>>> a394479d3d8a7764d710b16d3adc10529546e06a
+			"Felipe L. Ewald"
+		]
+	},
+	"3d-desc": "Fornece suporte para formatos de arquivo 3d",
+	"3d-patent": "Permissões de patente:",
+	"3d-nopatent": "Nenhuma selecionada",
+	"3d-thumb-placeholder": "Carregando a miniatura ..."
+}

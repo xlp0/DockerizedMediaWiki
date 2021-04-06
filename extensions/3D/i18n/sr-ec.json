@@ -1,0 +1,20 @@
+{
+	"@metadata": {
+		"authors": [
+			"Acamicamacaraca",
+			"BadDog",
+			"Obsuser",
+			"Сербијана"
+		]
+	},
+	"3d": "3D",
+	"3d-desc": "Пружа подршку за 3D формате датотека",
+	"3d-badge-text": "3D",
+	"3d-patent": "Дозвола патента:",
+	"3d-nopatent": "Ништа није изабрано",
+<<<<<<< HEAD
+	"3d-thumb-placeholder": "Учитавање сличице…"
+=======
+	"3d-thumb-placeholder": "Учитавање минијатуре…"
+>>>>>>> a394479d3d8a7764d710b16d3adc10529546e06a
+}

@@ -1,2 +1,2 @@
-*.agdai
-MAlonzo/**
+# Ignore Mac OS X tempfile
+.DS_Store
