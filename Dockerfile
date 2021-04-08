@@ -1,6 +1,5 @@
 FROM mediawiki
 
-
 # Define the ResourceBasePath in MediaWiki as a variable name: ResourceBasePath
 ENV ResourceBasePath /var/www/html
 
@@ -59,6 +58,13 @@ COPY ./extensions/EmbedVideo/ ${ResourceBasePath}/extensions/EmbedVideo/
 # Copy the BackupAndRestore scripting package to MediaWiki's "extensions/" directory
 COPY ./extensions/BackupAndRestore/ ${ResourceBasePath}/extensions/BackupAndRestore/
 
+# Copy Matomo package to extensions/
+COPY ./extensions/Matomo/ ${ResourceBasePath}/extensions/Matomo/
+
+# Copy OAuth package to extensions/
+COPY ./extensions/OAuth/ ${ResourceBasePath}/extensions/OAuth/
+
+
 # Copy the php.ini with desired upload_max_filesize into the php directory.
 ENV PHPConfigurationPath /usr/local/etc/php
 COPY ./resources/php.ini ${PHPConfigurationPath}/php.ini
@@ -93,10 +99,10 @@ WORKDIR ${ResourceBasePath}
 # Install PHP package manager "Composer"
 
 # Requires v1 instead of v2 for compatibility with Semantic MediaWiki 
-# RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin/ --filename=composer --version=1.10.16
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin/ --filename=composer --version=1.10.16
 
 # Update mediawiki extensions via composer
-# RUN echo "{\n\"require\": {\n\"mediawiki/semantic-media-wiki\": \"~3.2\"\n}\n}" > /var/www/html/composer.local.json
+RUN echo "{\n\"require\": {\n\"mediawiki/semantic-media-wiki\": \"~3.2\"\n}\n}" > ${ResourceBasePath}/composer.local.json
 
 # RUN useradd -u 5320 composer 
 # USER composer
