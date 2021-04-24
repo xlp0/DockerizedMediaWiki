@@ -26,7 +26,10 @@ WORKDIR ${ResourceBasePath}/extensions
 
 RUN apt update
 RUN apt install -y nodejs npm
-RUN git clone https://gerrit.wikimedia.org/r/3d2png
+
+# Copy 3d2png package to extensions/
+COPY ./extensions/3d2png/ ${ResourceBasePath}/extensions/3d2png/
+
 WORKDIR ${ResourceBasePath}/extensions/3d2png
 RUN npm update
 RUN npm upgrade
