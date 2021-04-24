@@ -1,7 +1,11 @@
 CURRENT_TIME = $(shell date +'%y.%m.%d %H:%M:%S')
 
 build: 
-	docker build -t xlp0/mediawiki .
+	docker build -t xlp0/mediawiki --build-arg BUILD_SMW=false .
+
+buildAndPushSMW: 
+	docker build -t xlp0/mediawiki.smw --build-arg BUILD_SMW=true .
+	docker push xlp0/mediawiki.smw
 
 push:
 	docker push xlp0/mediawiki

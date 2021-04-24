@@ -35,4 +35,6 @@ then
     mkdir $ResourceBasePath/$BackupDir/MediaFiles/
 fi
 
-nice -n 19 php $ResourceBasePath/maintenance/dumpUploads.php    | nice -n 19 sed 's~mwstore://local-backend/local-public~./images~'    | xargs cp -t $ResourceBasePath/$BackupDir/MediaFiles/
+nice -n 19 php $ResourceBasePath/maintenance/dumpUploads.php \
+ | nice -n 19 sed 's~mwstore://local-backend/local-public~./images~' \
+ | xargs cp -t $ResourceBasePath/$BackupDir/MediaFiles/

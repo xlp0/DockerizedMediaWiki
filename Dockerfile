@@ -3,6 +3,7 @@ FROM mediawiki
 # Define the ResourceBasePath in MediaWiki as a variable name: ResourceBasePath
 ENV ResourceBasePath /var/www/html
 
+ARG BUILD_SMW
 
 # Make sure that existing software are updated 
 RUN apt-get update 
@@ -10,12 +11,15 @@ RUN apt-get install -y ghostscript
 RUN apt-get install -y libmagickwand-dev
 RUN apt-get install -y xpdf
 RUN apt-get install -y xvfb
-RUN apt-get -y install cron
-RUN apt-get -y install nano
+RUN apt-get install -y cron
+RUN apt-get install -y nano
 
 RUN rm -rf /var/lib/apt/lists/*
 
 RUN apt-get upgrade
+
+# Change file read/write access for the images directory
+RUN chmod -R 777 ${ResourceBasePath}/images
 
 # Define working directory for the following commands
 WORKDIR ${ResourceBasePath}/extensions
@@ -64,13 +68,30 @@ COPY ./extensions/Matomo/ ${ResourceBasePath}/extensions/Matomo/
 # Copy OAuth package to extensions/
 COPY ./extensions/OAuth/ ${ResourceBasePath}/extensions/OAuth/
 
+# Copy GeoData package to extensions/
+COPY ./extensions/GeoData/ ${ResourceBasePath}/extensions/GeoData/
+
+# Copy JsonConfig package to extensions/
+COPY ./extensions/JsonConfig/ ${ResourceBasePath}/extensions/JsonConfig/
+
+# Copy Kartographer package to extensions/
+COPY ./extensions/Kartographer/ ${ResourceBasePath}/extensions/Kartographer/
+
+# Copy EmbedSpotify package to extensions/
+COPY ./extensions/EmbedSpotify/ ${ResourceBasePath}/extensions/EmbedSpotify/
+
+# Copy PageForms package to extensions/
+COPY ./extensions/PageForms/ ${ResourceBasePath}/extensions/PageForms/
 
 # Copy the php.ini with desired upload_max_filesize into the php directory.
 ENV PHPConfigurationPath /usr/local/etc/php
 COPY ./resources/php.ini ${PHPConfigurationPath}/php.ini
 
-# Copy the $wgLogo image to the container
+# Copy two $wgLogo images to the container so that we can switch between them
 COPY ./resources/xlp.png ${ResourceBasePath}/resources/assets/xlp.png
+COPY ./resources/EuMuse.png ${ResourceBasePath}/resources/assets/EuMuse.png
+COPY ./resources/toyhouse.png ${ResourceBasePath}/resources/assets/toyhouse.png
+
 # COPY ./resources/xlp.png ${ResourceBasePath}/backup/ToBeUploaded/xlp.png
 
 
@@ -109,4 +130,17 @@ RUN echo "{\n\"require\": {\n\"mediawiki/semantic-media-wiki\": \"~3.2\"\n}\n}" 
 # RUN composer update --no-dev
 # Warning: instsalling semantic mediawiki requires an additional 2GB of storage, it will make
 # downloaind terribly slow. Do it with care.
-# RUN composer require mediawiki/semantic-media-wiki "~3.2"
+RUN composer require mediawiki/maps 
+
+# Copy MW-OAuth2Client package to extensions/
+COPY ./extensions/MW-OAuth2Client/ ${ResourceBasePath}/extensions/MW-OAuth2Client/
+
+# Go to the ${ResourceBasePath}/extensions/MW-OAuth2Client/vendors/oauth2-client to install oauth-client
+WORKDIR ${ResourceBasePath}/extensions/MW-OAuth2Client/vendors/oauth2-client
+
+RUN composer install
+
+# Go to the ${ResourceBasePath} for working directory
+WORKDIR ${ResourceBasePath}
+
+RUN if [ "$BUILD_SMW" = "true" ]; then composer require mediawiki/semantic-media-wiki "~3.2"; fi
