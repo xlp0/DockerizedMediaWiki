@@ -86,6 +86,12 @@ COPY ./extensions/EmbedSpotify/ ${ResourceBasePath}/extensions/EmbedSpotify/
 # Copy PageForms package to extensions/
 COPY ./extensions/PageForms/ ${ResourceBasePath}/extensions/PageForms/
 
+# Copy GoogleDocs4MW package to extensions/
+COPY ./extensions/GoogleDocs4MW/ ${ResourceBasePath}/extensions/GoogleDocs4MW/
+
+# Copy TemplateWizard package to extensions/
+COPY ./extensions/TemplateWizard/ ${ResourceBasePath}/extensions/TemplateWizard/
+
 # Copy the php.ini with desired upload_max_filesize into the php directory.
 ENV PHPConfigurationPath /usr/local/etc/php
 COPY ./resources/php.ini ${PHPConfigurationPath}/php.ini
