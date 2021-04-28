@@ -126,7 +126,7 @@ WORKDIR ${ResourceBasePath}
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin/ --filename=composer --version=1.10.16
 
 # Update mediawiki extensions via composer
-RUN echo "{\n\"require\": {\n\"mediawiki/semantic-media-wiki\": \"~3.2\"\n}\n}"kaka > ${ResourceBasePath}/composer.local.json
+RUN echo "{\n\"require\": {\n\"mediawiki/semantic-media-wiki\": \"~3.2\"\n}\n}" > ${ResourceBasePath}/composer.local.json
 
 # RUN useradd -u 5320 composer 
 # USER composer
