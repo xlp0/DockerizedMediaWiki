@@ -133,7 +133,7 @@ RUN echo "{\n\"require\": {\n\"mediawiki/semantic-media-wiki\": \"~3.2\"\n}\n}" 
 # RUN composer update --no-dev
 # Warning: instsalling semantic mediawiki requires an additional 2GB of storage, it will make
 # downloaind terribly slow. Do it with care.
-RUN composer require mediawiki/maps 
+RUN composer require mediawiki/maps
 
 # Copy MW-OAuth2Client package to extensions/
 COPY ./extensions/MW-OAuth2Client/ ${ResourceBasePath}/extensions/MW-OAuth2Client/
@@ -142,6 +142,16 @@ COPY ./extensions/MW-OAuth2Client/ ${ResourceBasePath}/extensions/MW-OAuth2Clien
 WORKDIR ${ResourceBasePath}/extensions/MW-OAuth2Client/vendors/oauth2-client
 
 RUN composer install
+
+# Copy Widgets package to extensions/
+COPY ./extensions/Widgets/ ${ResourceBasePath}/extensions/Widgets/
+
+# Go to the ${ResourceBasePath}/extensions/Widgets/ to install oauth-client
+WORKDIR ${ResourceBasePath}/extensions/Widgets/
+
+RUN chmod a+rw ${ResourceBasePath}/extensions/Widgets/compiled_templates
+
+RUN composer update --no-dev
 
 # Go to the ${ResourceBasePath} for working directory
 WORKDIR ${ResourceBasePath}
