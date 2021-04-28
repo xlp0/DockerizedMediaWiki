@@ -149,7 +149,7 @@ COPY ./extensions/Widgets/ ${ResourceBasePath}/extensions/Widgets/
 # Go to the ${ResourceBasePath}/extensions/Widgets/ to install oauth-client
 WORKDIR ${ResourceBasePath}/extensions/Widgets/
 
-RUN sudo chmod a+rw ${ResourceBasePath}/extensions/Widgets/compiled_templates
+RUN chmod a+rw ${ResourceBasePath}/extensions/Widgets/compiled_templates
 
 RUN composer update --no-dev
 
