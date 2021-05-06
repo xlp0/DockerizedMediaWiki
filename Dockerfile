@@ -92,6 +92,9 @@ COPY ./extensions/GoogleDocs4MW/ ${ResourceBasePath}/extensions/GoogleDocs4MW/
 # Copy TemplateWizard package to extensions/
 COPY ./extensions/TemplateWizard/ ${ResourceBasePath}/extensions/TemplateWizard/
 
+# Copy Cargo package to extensions/
+COPY ./extensions/Cargo/ ${ResourceBasePath}/extensions/Cargo/
+
 # Copy the php.ini with desired upload_max_filesize into the php directory.
 ENV PHPConfigurationPath /usr/local/etc/php
 COPY ./resources/php.ini ${PHPConfigurationPath}/php.ini
