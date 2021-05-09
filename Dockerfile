@@ -95,6 +95,18 @@ COPY ./extensions/TemplateWizard/ ${ResourceBasePath}/extensions/TemplateWizard/
 # Copy Cargo package to extensions/
 COPY ./extensions/Cargo/ ${ResourceBasePath}/extensions/Cargo/
 
+# Copy HeadScript package to extensions/
+COPY ./extensions/HeadScript/ ${ResourceBasePath}/extensions/HeadScript/
+
+# Copy DrawioEditor package to extensions/
+COPY ./extensions/DrawioEditor/ ${ResourceBasePath}/extensions/DrawioEditor/
+
+# Copy Matomo package to extensions/
+COPY ./extensions/Matomo/ ${ResourceBasePath}/extensions/Matomo/
+
+# Copy MatomoAnalytics package to extensions/
+COPY ./extensions/MatomoAnalytics/ ${ResourceBasePath}/extensions/MatomoAnalytics/
+
 # Copy the php.ini with desired upload_max_filesize into the php directory.
 ENV PHPConfigurationPath /usr/local/etc/php
 COPY ./resources/php.ini ${PHPConfigurationPath}/php.ini
