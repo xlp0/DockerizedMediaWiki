@@ -1,4 +1,4 @@
-FROM mediawiki
+FROM mediawiki:1.35.2
 
 # Define the ResourceBasePath in MediaWiki as a variable name: ResourceBasePath
 ENV ResourceBasePath /var/www/html
@@ -13,7 +13,7 @@ RUN apt-get install -y xpdf
 RUN apt-get install -y xvfb
 RUN apt-get install -y cron
 RUN apt-get install -y nano
-RUN apt-get install zlibc
+RUN apt-get install zlibc zip unzip
 RUN rm -rf /var/lib/apt/lists/*
 
 RUN apt-get upgrade
@@ -149,7 +149,7 @@ WORKDIR ${ResourceBasePath}
 # Install PHP package manager "Composer"
 
 # Requires v1 instead of v2 for compatibility with Semantic MediaWiki 
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin/ --filename=composer --version=1.10.22
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin/ --filename=composer --version=2.1.2
 
 # Update mediawiki extensions via composer
 RUN echo "{\n\"require\": {\n\"mediawiki/semantic-media-wiki\": \"~3.2\"\n}\n}" > ${ResourceBasePath}/composer.local.json
