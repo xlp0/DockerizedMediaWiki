@@ -119,7 +119,7 @@ COPY ./resources/xlp.png ${ResourceBasePath}/resources/assets/xlp.png
 COPY ./resources/EuMuse.png ${ResourceBasePath}/resources/assets/EuMuse.png
 COPY ./resources/toyhouse.png ${ResourceBasePath}/resources/assets/toyhouse.png
 COPY ./resources/by-sa.png ${ResourceBasePath}/resources/assets/by-sa.png
-COPY ./resources/by-sa.png ${ResourceBasePath}/resources/assets/aqua.png
+COPY ./resources/aqua.png ${ResourceBasePath}/resources/assets/aqua.png
 
 
 # COPY ./resources/xlp.png ${ResourceBasePath}/backup/ToBeUploaded/xlp.png
