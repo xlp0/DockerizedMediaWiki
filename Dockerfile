@@ -110,6 +110,9 @@ COPY ./extensions/MatomoAnalytics/ ${ResourceBasePath}/extensions/MatomoAnalytic
 # Copy PGFTikZ package to extensions/
 COPY ./extensions/PGFTikZ  ${ResourceBasePath}/extensions/PGFTikZ
 
+# Copy ExtensionDataAccounting package to extensions/
+COPY ./extensions/ExtensionDataAccounting  ${ResourceBasePath}/extensions/ExtensionDataAccounting
+
 # Copy the php.ini with desired upload_max_filesize into the php directory.
 ENV PHPConfigurationPath /usr/local/etc/php
 COPY ./resources/php.ini ${PHPConfigurationPath}/php.ini

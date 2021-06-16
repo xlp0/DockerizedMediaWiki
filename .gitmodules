@@ -1,0 +1,3 @@
+[submodule "extensions/ExtensionDataAccounting"]
+	path = extensions/ExtensionDataAccounting
+	url = git@github.com:FantasticoFox/ExtensionDataAccounting.git
