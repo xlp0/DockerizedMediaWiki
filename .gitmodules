@@ -4,6 +4,3 @@
 [submodule "extensions/MW-OAuth2Client"]
 	path = extensions/MW-OAuth2Client
 	url = https://github.com/Schine/MW-OAuth2Client.git
-[submodule "extensions/3d2png"]
-	path = extensions/3d2png
-	url = https://gerrit.wikimedia.org/r/3d2png

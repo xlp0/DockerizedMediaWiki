@@ -14,7 +14,10 @@ RUN apt-get install -y xvfb
 RUN apt-get install -y cron
 RUN apt-get install -y nano
 RUN apt-get install zlibc zip unzip
+RUN apt-get install -y texlive-latex-base
+RUN apt-get install -y texlive-latex-extra
 RUN rm -rf /var/lib/apt/lists/*
+
 
 RUN apt-get upgrade
 
@@ -26,6 +29,10 @@ WORKDIR ${ResourceBasePath}/extensions
 
 RUN apt update
 RUN apt install -y nodejs npm
+#RUN npm i npm@latest -g
+#RUN apt install -y nodejs
+#RUN apt-get update
+#RUN apt-get -y upgrade
 
 # Copy 3d2png package to extensions/
 COPY ./extensions/3d2png/ ${ResourceBasePath}/extensions/3d2png/
@@ -113,6 +120,15 @@ COPY ./extensions/PGFTikZ  ${ResourceBasePath}/extensions/PGFTikZ
 # Copy ExtensionDataAccounting package to extensions/
 COPY ./extensions/ExtensionDataAccounting  ${ResourceBasePath}/extensions/ExtensionDataAccounting
 
+# Copy TemplateData package to extensions/
+COPY ./extensions/TemplateData  ${ResourceBasePath}/extensions/TemplateData
+
+# Copy TemplateStyles package to extensions/
+COPY ./extensions/TemplateStyles  ${ResourceBasePath}/extensions/TemplateStyles
+
+# Copy FreeTeX package to extensions/
+COPY ./extensions/FreeTeX  ${ResourceBasePath}/extensions/FreeTeX
+
 # Copy the php.ini with desired upload_max_filesize into the php directory.
 ENV PHPConfigurationPath /usr/local/etc/php
 COPY ./resources/php.ini ${PHPConfigurationPath}/php.ini
@@ -176,7 +192,7 @@ RUN composer install
 # Copy Widgets package to extensions/
 COPY ./extensions/Widgets/ ${ResourceBasePath}/extensions/Widgets/
 
-# Go to the ${ResourceBasePath}/extensions/Widgets/ to install oauth-client
+# Go to the ${ResourceBasePath}/extensions/Widgets/ to install Widgets
 WORKDIR ${ResourceBasePath}/extensions/Widgets/
 
 RUN chmod a+rw ${ResourceBasePath}/extensions/Widgets/compiled_templates
