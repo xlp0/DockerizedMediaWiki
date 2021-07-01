@@ -129,6 +129,21 @@ COPY ./extensions/TemplateStyles  ${ResourceBasePath}/extensions/TemplateStyles
 # Copy FreeTeX package to extensions/
 COPY ./extensions/FreeTeX  ${ResourceBasePath}/extensions/FreeTeX
 
+# Copy ExternalData package to extensions/
+COPY ./extensions/ExternalData  ${ResourceBasePath}/extensions/ExternalData
+
+# Copy HTMLTags package to extensions/
+COPY ./extensions/HTMLTags  ${ResourceBasePath}/extensions/HTMLTags
+
+# Copy HTMLets package to extensions/
+COPY ./extensions/HTMLets  ${ResourceBasePath}/extensions/HTMLets
+
+# Copy NamespaceHTML package to extensions/
+COPY ./extensions/NamespaceHTML  ${ResourceBasePath}/extensions/NamespaceHTML
+
+# Copy CSS package to extensions/
+COPY ./extensions/CSS  ${ResourceBasePath}/extensions/CSS
+
 # Copy the php.ini with desired upload_max_filesize into the php directory.
 ENV PHPConfigurationPath /usr/local/etc/php
 COPY ./resources/php.ini ${PHPConfigurationPath}/php.ini
