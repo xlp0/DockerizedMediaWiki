@@ -212,7 +212,18 @@ WORKDIR ${ResourceBasePath}/extensions/Widgets/
 
 RUN chmod a+rw ${ResourceBasePath}/extensions/Widgets/compiled_templates
 
+RUN composer install
+
+COPY ./composer.local.json ${ResourceBasePath}/composer.local.json
+
+RUN composer require mediawiki/maps "8.0.0"
+
+RUN composer require mediawiki/semantic-media-wiki  "~3.2"
+
+RUN composer require mediawiki/semantic-result-formats "~3.1"
+
 RUN composer update --no-dev
+
 
 # Go to the ${ResourceBasePath} for working directory
 WORKDIR ${ResourceBasePath}
