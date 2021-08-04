@@ -1,0 +1,46 @@
+{
+	"name": "wikiskripta/medik-skin",
+	"description": "MediaWiki skin for WikiSkripta.eu.",
+	"keywords": [
+		"wiki",
+		"MediaWiki",
+		"skin"
+	],
+	"homepage": "https://www.mediawiki.org/wiki/Skin:Medik",
+	"license": "CC0-1.0",
+	"authors": [
+		{
+			"name": "Petr Kajzar",
+			"email": "petr.kajzar@lf1.cuni.cz",
+			"role": "Developer"
+		}
+	],
+	"support": {
+		"email": "petr.kajzar@lf1.cuni.cz",
+		"docs": "https://www.mediawiki.org/wiki/Skin:Medik",
+		"source": "https://bitbucket.org/wikiskripta/medik/",
+		"issues": "https://bitbucket.org/wikiskripta/medik/issues"
+	},
+	"require": {
+		"php": ">=7.0",
+		"composer/installers": ">=1.10.0"
+	},
+	"config": {
+		"platform": {
+			"php": "8.0.3"
+		}
+	},
+	"require-dev": {
+		"php-parallel-lint/php-parallel-lint": "1.2.0",
+		"php-parallel-lint/php-console-highlighter": "0.5.0",
+		"mediawiki/mediawiki-codesniffer": "35.0.0",
+		"mediawiki/minus-x": "1.1.1"
+	},
+	"scripts": {
+		"test": [
+			"parallel-lint . --exclude vendor",
+			"minus-x check .",
+			"phpcs -sp"
+		]
+	}
+}

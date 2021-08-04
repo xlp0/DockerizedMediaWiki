@@ -144,6 +144,9 @@ COPY ./extensions/NamespaceHTML  ${ResourceBasePath}/extensions/NamespaceHTML
 # Copy CSS package to extensions/
 COPY ./extensions/CSS  ${ResourceBasePath}/extensions/CSS
 
+# Copy Medik package to extensions/
+COPY ./extensions/Medik  ${ResourceBasePath}/skins/Medik
+
 # Copy the php.ini with desired upload_max_filesize into the php directory.
 ENV PHPConfigurationPath /usr/local/etc/php
 COPY ./resources/php.ini ${PHPConfigurationPath}/php.ini

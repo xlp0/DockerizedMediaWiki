@@ -1,0 +1,20 @@
+pipelines:
+  default:
+    - step:
+        name: PHP
+        image: composer:latest
+        caches:
+          - composer
+        script:
+          - composer --version
+          - php -v
+          - composer install
+          - composer test
+    - step:
+        name: CSS and JS
+        image: node:latest
+        caches:
+          - node
+        script:
+          - npm install
+          - npm test
