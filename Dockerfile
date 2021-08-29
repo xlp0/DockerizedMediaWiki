@@ -222,14 +222,6 @@ RUN composer install
 
 RUN composer update --no-dev
 
-#RUN composer require mediawiki/maps "8.0.0"
-
-#RUN composer require mediawiki/semantic-media-wiki  "~3.2"
-
-#RUN composer require mediawiki/semantic-result-formats "~3.1"
-
-#RUN composer require rht/merkle-tree "dev-master"
-
 # Go to the ${ResourceBasePath} for working directory
 #WORKDIR ${ResourceBasePath}
 
