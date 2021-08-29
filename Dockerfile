@@ -1,4 +1,4 @@
-FROM mediawiki:1.36.1
+FROM mediawiki:1.35.2
 
 # Define the ResourceBasePath in MediaWiki as a variable name: ResourceBasePath
 ENV ResourceBasePath /var/www/html
