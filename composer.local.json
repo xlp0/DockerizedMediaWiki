@@ -1,6 +1,10 @@
 {
-    "require": {"mediawiki/maps": "~8.0"},
-    "require": {"mediawiki/semantic-media-wiki": "~3.2"},
-    "require": {"mediawiki/semantic-result-formats": "~3.1"},
-    "require": {"rht/merkle-tree": "dev-master"}
+    "require": {
+        "rht/merkle-tree": "dev-master",
+        "mediawiki/maps": "9.0",
+        "mediawiki/semantic-media-wiki":"~3.2",
+        "mediawiki/semantic-result-formats": "~3.1",
+        "mediawiki/semantic-cite": "~2.1",
+        "mediawiki/sub-page-list": "~1.4"
+    }
 }
