@@ -44,7 +44,7 @@ RUN npm upgrade
 # Copy 3d2png package to extensions/
 COPY ./extensions/3d2png/ ${ResourceBasePath}/extensions/3d2png/
 WORKDIR ${ResourceBasePath}/extensions/3d2png
-#RUN npm install --save-dev gulp-dependencies-changed
+#RUN npm install 
 
 
 # Copy 3D package to extensions/
@@ -151,6 +151,7 @@ COPY ./extensions/CSS  ${ResourceBasePath}/extensions/CSS
 
 # Copy Diagrams package to extensions/
 COPY ./extensions/Diagrams  ${ResourceBasePath}/extensions/Diagrams
+
 
 # Copy Medik package to extensions/
 COPY ./extensions/Medik  ${ResourceBasePath}/skins/Medik
