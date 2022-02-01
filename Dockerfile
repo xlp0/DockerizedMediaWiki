@@ -1,4 +1,4 @@
-FROM mediawiki:1.35.2
+FROM mediawiki:1.35.5
 
 # Define the ResourceBasePath in MediaWiki as a variable name: ResourceBasePath
 ENV ResourceBasePath /var/www/html
@@ -157,6 +157,14 @@ COPY ./extensions/Medik  ${ResourceBasePath}/skins/Medik
 
 # Copy Refreshed package to extensions/
 COPY ./extensions/Refreshed  ${ResourceBasePath}/skins/Refreshed
+
+# Copy Multilingual Translation Module for Mediawiki
+COPY ./extensions/Babel  ${ResourceBasePath}/extensions/Babel
+COPY ./extensions/cldr  ${ResourceBasePath}/extensions/cldr
+COPY ./extensions/CleanChanges  ${ResourceBasePath}/extensions/CleanChanges
+COPY ./extensions/LocalisationUpdate  ${ResourceBasePath}/extensions/LocalisationUpdate
+COPY ./extensions/Translate  ${ResourceBasePath}/extensions/Translate
+COPY ./extensions/UniversalLanguageSelector  ${ResourceBasePath}/extensions/UniversalLanguageSelector
 
 # Copy the php.ini with desired upload_max_filesize into the php directory.
 ENV PHPConfigurationPath /usr/local/etc/php
