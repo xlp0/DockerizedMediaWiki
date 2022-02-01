@@ -7,8 +7,13 @@ build:
 	docker buildx build -t xlp0/pkc --build-arg BUILD_SMW=false .
 
 buildAndPush:
+<<<<<<< HEAD
 	docker buildx build -t xlp0/pkc --build-arg BUILD_SMW=false .
 	docker push xlp0/pkc
+=======
+	docker buildx build -t xlp0/semanticwiki --build-arg BUILD_SMW=false .
+	docker push xlp0/semanticwiki
+>>>>>>> bd89a27 (Changed some build options)
 
 buildAndPushSMW: 
 	docker buildx build -t xlp0/mediawiki.smw --build-arg BUILD_SMW=true .
