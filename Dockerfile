@@ -152,6 +152,8 @@ COPY ./extensions/CSS  ${ResourceBasePath}/extensions/CSS
 # Copy Diagrams package to extensions/
 COPY ./extensions/Diagrams  ${ResourceBasePath}/extensions/Diagrams
 
+# Copy SemanticScribunto package to extensions/
+COPY ./extensions/SemanticScribunto  ${ResourceBasePath}/extensions/SemanticScribunto
 
 # Copy Medik package to extensions/
 COPY ./extensions/Medik  ${ResourceBasePath}/skins/Medik
