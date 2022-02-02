@@ -1,23 +1,13 @@
 CURRENT_TIME = $(shell date +'%y.%m.%d %H:%M:%S')
 
 test: 
-	docker buildx build -t xlp0/pkc_test --build-arg BUILD_SMW=false .
+	docker buildx build --platform linux/amd64,linux/arm64 -t xlp0/pkc_test --build-arg BUILD_SMW=false .
 
-build: 
+build:
 	docker buildx build -t xlp0/pkc --build-arg BUILD_SMW=false .
 
-buildAndPush:
-<<<<<<< HEAD
-	docker buildx build -t xlp0/pkc --build-arg BUILD_SMW=false .
-	docker push xlp0/pkc
-=======
-	docker buildx build -t xlp0/semanticwiki --build-arg BUILD_SMW=false .
-	docker push xlp0/semanticwiki
->>>>>>> bd89a27 (Changed some build options)
-
-buildAndPushSMW: 
-	docker buildx build -t xlp0/mediawiki.smw --build-arg BUILD_SMW=true .
-	docker push xlp0/mediawiki.smw
+buildAndPush: 
+	docker buildx build --platform linux/amd64,linux/arm64 -t xlp0/pkc --build-arg BUILD_SMW=false . --push
 
 push:
 	docker push xlp0/pkc
