@@ -11,6 +11,8 @@ RUN apt-get update -y
 RUN apt-get install -y zip unzip
 RUN apt update
 
+# This is dedicated for ARM architecture
+RUN apt-get install lua5.3
 
 RUN apt-get install -y ghostscript
 RUN apt-get install -y libmagickwand-dev
