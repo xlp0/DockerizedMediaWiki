@@ -21,7 +21,8 @@ RUN apt-get upgrade
 RUN chmod -R 777 ${ResourceBasePath}/images
 
 # Install lua for ARM architecture
-RUN apt-get instsall lua5.3
+RUN apt-get update -y 
+RUN apt-get install lua5.1
 
 # Go to the ${ResourceBasePath} for working directory
 #WORKDIR ${ResourceBasePath}
