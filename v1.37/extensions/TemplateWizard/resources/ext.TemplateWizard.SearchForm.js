@@ -3,7 +3,7 @@
  * @constructor
  * @param {OO.ui.ProcessDialog} dialog The dialog to attach the form to.
  * @param {Object} [config] Configuration options.
- * @cfg {string} [dir] The direction of the page content
+ * @cfg {string} [contentDir] The direction of the page content
  */
 mw.TemplateWizard.SearchForm = function MWTemplateWizardSearchForm( dialog, config ) {
 	config = $.extend( {
@@ -21,13 +21,26 @@ mw.TemplateWizard.SearchForm = function MWTemplateWizardSearchForm( dialog, conf
 	// Add to the SearchForm layout.
 	this.$element
 		.addClass( 'ext-templatewizard-searchform' )
-		// The direction should remain the site-wide language direction
-		// since the template language is assumed to be wiki language
-		.css( 'direction', config.dir || 'ltr' )
-		.append(
-			this.searchWidget.$element,
-			this.recentTemplates.$element
+		.append( $( '<div>' )
+			// The direction should remain the site-wide language direction
+			// since the template language is assumed to be wiki language
+			.css( 'direction', config.contentDir || 'ltr' )
+			.append(
+				this.searchWidget.$element,
+				this.recentTemplates.$element
+			)
 		);
+
+	// Temporary feedback message when templateSearchImprovements is true T284560
+	// TODO: remove when templateSearchImprovements are out of beta
+	if ( mw.config.get( 'wgTemplateWizardConfig' ).cirrusSearchLookup ) {
+		new mw.TemplateWizard.DismissibleMessageWidget( {
+			messageKey: 'templatewizard-search-feedback-message',
+			classes: [ 'ext-templatewizard-feedback-message' ]
+		} )
+			.connect( this, { close: 'focus' } )
+			.$element.prependTo( this.$element );
+	}
 };
 
 OO.inheritClass( mw.TemplateWizard.SearchForm, OO.ui.PanelLayout );

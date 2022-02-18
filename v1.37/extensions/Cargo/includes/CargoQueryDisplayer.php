@@ -47,6 +47,8 @@ class CargoQueryDisplayer {
 			'calendar' => 'CargoCalendarFormat',
 			'icalendar' => 'CargoICalendarFormat',
 			'timeline' => 'CargoTimelineFormat',
+			'gantt' => 'CargoGanttFormat',
+			'bpmn' => 'CargoBPMNFormat',
 			'category' => 'CargoCategoryFormat',
 			'bar chart' => 'CargoBarChartFormat',
 			'pie chart' => 'CargoPieChartFormat',
@@ -55,6 +57,7 @@ class CargoQueryDisplayer {
 			'tag cloud' => 'CargoTagCloudFormat',
 			'exhibit' => 'CargoExhibitFormat',
 			'bibtex' => 'CargoBibtexFormat',
+			'zip' => 'CargoZipFormat'
 		];
 
 		// Let other extensions add their own formats - or even
@@ -256,6 +259,7 @@ class CargoQueryDisplayer {
 		} elseif ( $type == 'Wikitext' || $type == 'Wikitext string' || $type == '' ) {
 			return CargoUtils::smartParse( $value, $parser );
 		} elseif ( $type == 'Searchtext' ) {
+			$value = htmlspecialchars( $value );
 			if ( strlen( $value ) > 300 ) {
 				return substr( $value, 0, 300 ) . ' ...';
 			} else {
@@ -369,7 +373,16 @@ class CargoQueryDisplayer {
 
 		$formattedQueryResults = $this->getFormattedQueryResults( $queryResults );
 		$text = '';
-		if ( array_key_exists( 'intro', $this->mDisplayParams ) ) {
+
+		// If this is the 'template' format, let the formatter print
+		// out the intro and outro, so they can be parsed at the same
+		// time as the main body. In theory, this should be done for
+		// every result format, but in practice, probably only with
+		// 'template' could there be complex formatting (like a table
+		// with a header and footer) where this approach to parsing
+		// would make a difference.
+		$formatClass = get_class( $formatter );
+		if ( array_key_exists( 'intro', $this->mDisplayParams ) && $formatClass !== 'CargoTemplateFormat' ) {
 			$text .= CargoUtils::smartParse( $this->mDisplayParams['intro'], $formatter->mParser );
 		}
 		try {
@@ -378,7 +391,7 @@ class CargoQueryDisplayer {
 		} catch ( Exception $e ) {
 			return CargoUtils::formatError( $e->getMessage() );
 		}
-		if ( array_key_exists( 'outro', $this->mDisplayParams ) ) {
+		if ( array_key_exists( 'outro', $this->mDisplayParams ) && $formatClass !== 'CargoTemplateFormat' ) {
 			$text .= CargoUtils::smartParse( $this->mDisplayParams['outro'], $formatter->mParser );
 		}
 		return $text;

@@ -1,10 +1,55 @@
 @import 'mediawiki.mixins';
 @import 'mediawiki.ui/variables';
 
+@description-font-size: 12px;
+
+.ext-templatewizard-dismissibleMessageWidget {
+	&.oo-ui-messageWidget-block {
+		padding-right: 48px;
+	}
+
+	.oo-ui-buttonElement {
+		margin-right: 0;
+		// Position relative to the surrounding .oo-ui-messageWidget
+		position: absolute;
+		right: 2px;
+		top: 2px;
+	}
+}
+
+.ext-templatewizard-feedback-message {
+	// Same as the padding in the surrounding .oo-ui-panelLayout-padded
+	margin-bottom: 12px;
+}
+
 .ext-templatewizard-searchform {
+	@description-line-height: 1.2em;
+
+	.ext-templatewizard-description,
+	.ext-templatewizard-redirectedfrom {
+		color: @color-base--subtle;
+		display: block;
+		font-size: @description-font-size;
+		line-height: @description-line-height;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
 	.ext-templatewizard-description {
-		font-size: smaller;
-		color: @colorGray7;
+		@max-lines: 2;
+		display: -webkit-box;
+		max-height: @max-lines * @description-line-height;
+		-webkit-line-clamp: @max-lines;
+		-webkit-box-orient: vertical;
+	}
+
+	.ext-templatewizard-redirectedfrom {
+		font-style: italic;
+		white-space: nowrap;
+	}
+
+	.oo-ui-inputWidget {
+		margin-right: 0;
 	}
 
 	.oo-ui-comboBoxInputWidget .oo-ui-iconElement-icon {
@@ -42,9 +87,10 @@
 
 	.ext-templatewizard-description {
 		margin: 0 7px 7px 7px;
-		font-size: 12px;
+		font-size: @description-font-size;
 		overflow: auto;
 		max-height: 65px;
+		overflow-wrap: break-word;
 
 		p {
 			margin: 0 0 7px 0;
@@ -81,9 +127,9 @@
 		border-right: 1px solid @colorGray12;
 
 		.ext-templatewizard-section-header {
+			color: @color-base--subtle;
 			font-size: 12px;
 			font-weight: bolder;
-			color: @colorGray7;
 			text-transform: uppercase;
 		}
 
@@ -94,8 +140,8 @@
 			.oo-ui-buttonElement.oo-ui-buttonElement-frameless.oo-ui-flaggedElement-destructive {
 				.oo-ui-labelElement-label {
 					// HACK: Override OOUI styles by making only the icon colorful,
-					// and leaving the text of the label black
-					color: @colorText;
+					// and leaving the text of the label in base grey.
+					color: @color-base;
 				}
 			}
 		}
@@ -108,11 +154,11 @@
 
 		// Button to add or remove all fields
 		.ext-templatewizard-add-remove-all {
+			background-color: @background-color-base;
 			border-top: 1px solid @colorGray12;
 			position: absolute;
 			bottom: 0;
 			width: 100%;
-			background-color: @colorBaseInverted;
 
 			span.oo-ui-widget {
 				display: block;

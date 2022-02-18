@@ -32,7 +32,9 @@ if ( getenv( 'MW_INSTALL_PATH' ) ) {
 	require_once __DIR__ . '/../../../maintenance/Maintenance.php';
 }
 
-$maintClass = "SetCargoFileData";
+use MediaWiki\MediaWikiServices;
+
+$maintClass = SetCargoFileData::class;
 
 class SetCargoFileData extends Maintenance {
 
@@ -49,7 +51,8 @@ class SetCargoFileData extends Maintenance {
 		$createReplacement = $this->hasOption( 'replacement' );
 		$fileDataTable = $createReplacement ? '_fileData__NEXT' : '_fileData';
 
-		$dbr = wfGetDB( DB_REPLICA );
+		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
+		$dbr = $lb->getConnectionRef( DB_REPLICA );
 		$res = $dbr->select( 'cargo_tables', [ 'field_tables', 'field_helper_tables' ],
 			[ 'main_table' => $fileDataTable ] );
 
@@ -77,7 +80,7 @@ class SetCargoFileData extends Maintenance {
 		$dbw = wfGetDB( DB_MASTER );
 		CargoUtils::createCargoTableOrTables( $cdb, $dbw, $fileDataTable, $tableSchema, $tableSchemaString, -1 );
 
-		$pages = $dbr->select( 'page', [ 'page_id' ] );
+		$pages = $dbr->select( 'page', [ 'page_id' ], 'page_namespace = ' . NS_FILE );
 
 		foreach ( $pages as $page ) {
 			$title = Title::newFromID( $page->page_id );

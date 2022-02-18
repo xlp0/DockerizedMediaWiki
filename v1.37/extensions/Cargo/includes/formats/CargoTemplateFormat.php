@@ -14,7 +14,7 @@ class CargoTemplateFormat extends CargoDisplayFormat {
 		];
 	}
 
-	private function displayRow( $templateName, $row, $fieldDescriptions, $namedArgs ) {
+	protected function displayRow( $templateName, $row, $fieldDescriptions, $namedArgs ) {
 		$wikiText = '{{' . $templateName;
 		// If we're not using named arguments, we add the field number
 		// in to the template call, to not mess up values that contain '='.
@@ -66,11 +66,17 @@ class CargoTemplateFormat extends CargoDisplayFormat {
 			$displayParams['delimiter'] : '';
 		$delimiter = str_replace( '\n', "\n", $delimiter );
 		$text = '';
+		if ( array_key_exists( 'intro', $displayParams ) ) {
+			$text .= "\n" . $displayParams['intro'] . "\n";
+		}
 		foreach ( $valuesTable as $i => $row ) {
 			if ( $i > 0 ) {
 				$text .= $delimiter;
 			}
 			$text .= $this->displayRow( $templateName, $row, $fieldDescriptions, $namedArgs );
+		}
+		if ( array_key_exists( 'outro', $displayParams ) ) {
+			$text .= "\n" . $displayParams['outro'] . "\n";
 		}
 		global $wgTitle;
 		if ( $wgTitle != null && $wgTitle->isSpecialPage() ) {

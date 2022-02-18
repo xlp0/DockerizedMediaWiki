@@ -13,11 +13,13 @@ use GeoData\Search\CirrusNearTitleBoostFeature;
 use GeoData\Search\CirrusNearTitleFilterFeature;
 use GeoData\Search\GeoRadiusFunctionScoreBuilder;
 use HashConfig;
-use MediaWiki\MediaWikiServices;
+use LinkCacheTestTrait;
 use MediaWikiTestCase;
 use Title;
+use Wikimedia\Rdbms\DBConnRef;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\LoadBalancer;
+use Wikimedia\Rdbms\MaintainableDBConnRef;
 
 /**
  * This program is free software; you can redistribute it and/or modify
@@ -43,6 +45,7 @@ use Wikimedia\Rdbms\LoadBalancer;
  * @group GeoData
  */
 class GeoFeatureTest extends MediaWikiTestCase {
+	use LinkCacheTestTrait;
 
 	/** @var KeywordFeatureAssertions */
 	private $kwAssert;
@@ -51,7 +54,7 @@ class GeoFeatureTest extends MediaWikiTestCase {
 		MediaWikiTestCase::__construct( $name, $data, $dataName );
 	}
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
 		if ( !class_exists( CirrusSearch::class ) ) {
 			$this->markTestSkipped( 'CirrusSearch not installed, skipping' );
@@ -286,37 +289,37 @@ class GeoFeatureTest extends MediaWikiTestCase {
 	 */
 	public function testParseGeoNearbyTitle( $expected, $value ) {
 		// Replace database with one that will return our fake coordinates if asked
-		$db = $this->createMock( IDatabase::class );
-		$db->expects( $this->any() )
-			->method( 'select' )
-			->with( 'geo_tags', $this->anything(), $this->anything(), $this->anything() )
-			->will( $this->returnValue( [
-				(object)[ 'gt_lat' => 1.2345, 'gt_lon' => 5.4321 ],
-			] ) );
-		// Tell LinkCache all titles not explicitly added don't exist
-		$db->expects( $this->any() )
-			->method( 'selectRow' )
-			->with( 'page', $this->anything(), $this->anything(), $this->anything() )
-			->will( $this->returnValue( false ) );
+		$dbMocker = function ( $db ) {
+			$db->method( 'select' )
+				->with( 'geo_tags', $this->anything(), $this->anything(), $this->anything() )
+				->willReturn( [
+					(object)[ 'gt_lat' => 1.2345, 'gt_lon' => 5.4321 ],
+				] );
+			// Tell LinkCache all titles not explicitly added don't exist
+			$db->method( 'selectRow' )
+				->with(
+					$this->logicalOr( 'page', [ 'page' ] ),
+					$this->anything(),
+					$this->anything(),
+					$this->anything()
+				)
+				->willReturn( false );
+			return $db;
+		};
 		// Inject mock database into a mock LoadBalancer
 		$lb = $this->createMock( LoadBalancer::class );
-		$lb->expects( $this->any() )
-			->method( 'getConnection' )
-			->will( $this->returnValue( $db ) );
-		$lb->expects( $this->any() )
-			->method( 'getConnectionRef' )
-			->will( $this->returnValue( $db ) );
-		$lb->expects( $this->any() )
-			->method( 'getMaintenanceConnectionRef' )
-			->will( $this->returnValue( $db ) );
+		$lb->method( 'getConnection' )
+			->willReturn( $dbMocker( $this->createMock( IDatabase::class ) ) );
+		$lb->method( 'getConnectionRef' )
+			->willReturn( $dbMocker( $this->createMock( DBConnRef::class ) ) );
+		$lb->method( 'getMaintenanceConnectionRef' )
+			->willReturn( $dbMocker( $this->createMock( MaintainableDBConnRef::class ) ) );
 		$this->setService( 'DBLoadBalancer', $lb );
 
 		// Inject fake San Francisco page into LinkCache so it "exists"
-		MediaWikiServices::getInstance()->getLinkCache()
-			->addGoodLinkObj( 7654321, Title::newFromText( 'San Francisco' ) );
+		$this->addGoodLinkObject( 7654321, Title::newFromText( 'San Francisco' ) );
 		// Inject fake page with comma in it as well
-		MediaWikiServices::getInstance()->getLinkCache()
-			->addGoodLinkObj( 1234567, Title::newFromText( 'Washington, D.C.' ) );
+		$this->addGoodLinkObject( 1234567, Title::newFromText( 'Washington, D.C.' ) );
 
 		$config = new HashConfig( [ 'DefaultGlobe' => 'earth' ] );
 
@@ -420,8 +423,7 @@ class GeoFeatureTest extends MediaWikiTestCase {
 		$query = $keyAndValue[0] . ':"' . $keyAndValue[1] . '"';
 
 		// Inject fake page into LinkCache so it "exists"
-		MediaWikiServices::getInstance()->getLinkCache()
-			->addGoodLinkObj( 98765, Title::newFromText( 'GeoFeatureTest-GeoWarnings-Page' ) );
+		$this->addGoodLinkObject( 98765, Title::newFromText( 'GeoFeatureTest-GeoWarnings-Page' ) );
 
 		$this->kwAssert->assertWarnings( $feature, $expected, $query );
 	}

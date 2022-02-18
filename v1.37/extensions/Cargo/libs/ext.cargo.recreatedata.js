@@ -13,19 +13,21 @@
 	var recreateData = new cargo.recreateData();
 
 	var dataDiv = $("div#recreateDataData");
-	var apiURL = dataDiv.attr("apiurl");
 	var cargoScriptPath = dataDiv.attr("cargoscriptpath");
 	var tableName = dataDiv.attr("tablename");
+	var isSpecialTable = dataDiv.attr("isspecialtable");
 	var isDeclared = dataDiv.attr("isdeclared");
+	var numTotalPages = dataDiv.attr("totalpages");
 	var viewTableURL = dataDiv.attr("viewtableurl");
 	var createReplacement = false;
 	var templateData = jQuery.parseJSON( dataDiv.html() );
-
-	var numTotalPages = 0;
 	var numTotalPagesHandled = 0;
 
-	for ( var i = 0; i < templateData.length; i++ ) {
-		numTotalPages += parseInt( templateData[i].numPages );
+	if ( numTotalPages == null ) {
+		numTotalPages = 0;
+		for ( var i = 0; i < templateData.length; i++ ) {
+			numTotalPages += parseInt( templateData[i].numPages );
+		}
 	}
 
 	recreateData.replaceForm = function() {
@@ -47,21 +49,22 @@
 		$("#recreateDataProgress").html( "<p>" + progressImage + "</p>" );
 		var queryStringData = {
 			action: "cargorecreatedata",
+			format: "json",
 			table: tableName,
-			template: curTemplate.name,
+			template: curTemplate ? curTemplate.name : '',
 			offset: numPagesHandled
 		};
 		if ( replaceOldRows ) {
 			queryStringData.replaceOldRows = true;
 		}
-		$.get(
-			apiURL,
-			queryStringData
-		)
+
+		let mwApi = new mw.Api();
+		mwApi.postWithToken( 'csrf', queryStringData )
 		.done(function( msg ) {
-			var newNumPagesHandled = Math.min( numPagesHandled + 500, curTemplate.numPages );
+			var curNumPages = curTemplate ? curTemplate.numPages : numTotalPages;
+			var newNumPagesHandled = Math.min( numPagesHandled + 500, curNumPages );
 			numTotalPagesHandled += newNumPagesHandled - numPagesHandled;
-			if ( newNumPagesHandled < curTemplate.numPages ) {
+			if ( newNumPagesHandled < curNumPages ) {
 				recreateData.createJobs( templateNum, newNumPagesHandled, replaceOldRows );
 			} else {
 				if ( templateNum + 1 < templateData.length ) {
@@ -69,12 +72,16 @@
 				} else {
 					// We're done.
 					if ( createReplacement ) {
-						viewTableURL += "?_replacement";
+						viewTableURL += ( viewTableURL.indexOf('?') === -1 ) ? '?' : '&';
+						viewTableURL += "_replacement";
 					}
 					var linkMsg = createReplacement ? 'cargo-cargotables-viewreplacementlink' : 'cargo-cargotables-viewtablelink';
 					$("#recreateDataProgress").html( "<p>" + mw.msg( 'cargo-recreatedata-success' ) + "</p><p><a href=\"" + viewTableURL + "\">" + mw.msg( linkMsg ) + "</a>.</p>" );
 				}
 			}
+		}).fail(function (error) {
+			$("#recreateTableProgress").html( "<p>" + mw.msg( 'cargo-recreatedata-job-creation-failed', tableName ) + "</p>" );
+			// handle failure
 		});
 	}
 
@@ -83,20 +90,32 @@
 
 		recreateData.replaceForm();
 
-		if ( isDeclared ) {
+		if ( isDeclared || isSpecialTable ) {
 			$("#recreateTableProgress").html( "<img src=\"" + cargoScriptPath + "/resources/images/loading.gif\" />" );
-			var queryStringData = {
-				action: "cargorecreatetables",
-				template: templateData[0].name,
-			};
+			if ( isDeclared ) {
+				var queryStringData = {
+					action: "cargorecreatetables",
+					format: 'json',
+					template: templateData[0].name,
+				};
+			} else {
+				var queryStringData = {
+					action: "cargorecreatespecialtable",
+					table: tableName
+				};
+			}
 			if ( createReplacement ) {
 				queryStringData.createReplacement = true;
 			}
-			$.get( apiURL, queryStringData )
-			.done(function( msg ) {
+
+			let mwApi = new mw.Api();
+			mwApi.postWithToken( 'csrf', queryStringData )
+			.then(function( msg ) {
 				var displayMsg = createReplacement ? 'cargo-recreatedata-replacementcreated' : 'cargo-recreatedata-tablecreated';
 				$("#recreateTableProgress").html( "<p>" + mw.msg( displayMsg, tableName ) + "</p>" );
 				recreateData.createJobs( 0, 0, false );
+			}).fail(function (error) {
+				$("#recreateTableProgress").html( "<p>" + mw.msg( 'cargo-recreatedata-table-creation-failed', tableName ) + "</p>" );
 			});
 		} else {
 			recreateData.createJobs( 0, 0, true );

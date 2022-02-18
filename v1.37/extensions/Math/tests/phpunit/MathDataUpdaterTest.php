@@ -8,7 +8,7 @@ use Wikibase\DataModel\Statement\Statement;
 /**
  * Test the MathDataUpdater for Wikidata
  *
- * @covers \MathDataUpdater
+ * @covers \MediaWiki\Extension\Math\MathDataUpdater
  *
  * @license GPL-2.0-or-later
  */
@@ -26,8 +26,9 @@ class MathDataUpdaterTest extends MediaWikiTestCase {
 	/**
 	 * @inheritDoc
 	 */
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
+		$this->markTestSkippedIfExtensionNotLoaded( 'WikibaseClient' );
 		$this->mathProperty = new PropertyId( 'P' . DummyPropertyDataTypeLookup::$mathId );
 		$this->otherProperty = new PropertyId( 'P' . ( DummyPropertyDataTypeLookup::$mathId + 1 ) );
 	}
@@ -37,7 +38,7 @@ class MathDataUpdaterTest extends MediaWikiTestCase {
 		$updater = new MathDataUpdater( $matcher );
 		$statement = new Statement( new PropertyNoValueSnak( $this->otherProperty ) );
 		$updater->processStatement( $statement );
-		$parserOutput = $this->getMockBuilder( ParserOutput::class )->setMethods( [
+		$parserOutput = $this->getMockBuilder( ParserOutput::class )->onlyMethods( [
 			'addModules',
 			'addModuleStyles',
 		] )->getMock();
@@ -52,7 +53,7 @@ class MathDataUpdaterTest extends MediaWikiTestCase {
 		$updater = new MathDataUpdater( $matcher );
 		$statement = new Statement( new PropertyNoValueSnak( $this->mathProperty ) );
 		$updater->processStatement( $statement );
-		$parserOutput = $this->getMockBuilder( ParserOutput::class )->setMethods( [
+		$parserOutput = $this->getMockBuilder( ParserOutput::class )->onlyMethods( [
 			'addModules',
 			'addModuleStyles',
 		] )->getMock();

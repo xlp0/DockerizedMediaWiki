@@ -3,7 +3,7 @@
 class CargoFieldDescriptionTest extends MediaWikiIntegrationTestCase {
 	private $cargoFieldDescription;
 
-	public function setUp() : void {
+	public function setUp(): void {
 		$this->cargoFieldDescription = new CargoFieldDescription();
 	}
 
@@ -17,16 +17,47 @@ class CargoFieldDescriptionTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @covers CargoFieldDescription::newFromString
+	 * @dataProvider provideValidDescriptionString
 	 */
-	public function testNewFromString() {
-		$fieldDescStr = '{{#cargo_declare:_table=Test|Name='
-			. 'String (size=10;dependent on=size;delimiter=\;allowed values=*One**Oneone;mandatory;'
-			. 'unique;regex=xxx;hidden;hierarchy;)}}';
-
+	public function testNewFromString( $fieldDescStr ) {
 		$actual = CargoFieldDescription::newFromString( $fieldDescStr );
 		$this->assertInstanceOf(
 			CargoFieldDescription::class, $actual
 		);
+	}
+
+	/**
+	 * @return array
+	 */
+	public function provideValidDescriptionString() {
+		return [
+			[ 'URL' ],
+			[ 'list (;) of String (size=10;dependent on=size;allowed values=*,)' ],
+			[
+				'{{#cargo_declare:_table=Test|Name='
+				. 'String (size=10;dependent on=size;delimiter=\;allowed values=*One**Oneone;mandatory;'
+				. 'unique;regex=xxx;hidden;hierarchy;)}}'
+			]
+		];
+	}
+
+	/**
+	 * @covers CargoFieldDescription::newFromString
+	 * @dataProvider provideInValidDescriptionString
+	 */
+	public function testExceptionNewFromString( $fieldDescStr ) {
+		$this->expectException( MWException::class );
+		$actual = CargoFieldDescription::newFromString( $fieldDescStr );
+	}
+
+	/**
+	 * @return array
+	 */
+	public function provideInValidDescriptionString() {
+		return [
+			[ 'list (;) of BOOLEAN' ],
+			[ 'TEXT (unique;)' ],
+		];
 	}
 
 	/**
@@ -202,5 +233,67 @@ class CargoFieldDescriptionTest extends MediaWikiIntegrationTestCase {
 		$this->assertArrayHasKey( 'hierarchy', $fieldDescArray );
 		$this->assertArrayHasKey( 'hierarchyStructure', $fieldDescArray );
 		$this->assertArrayHasKey( 'extra', $fieldDescArray );
+	}
+
+	/**
+	 * @covers CargoFieldDescription::prepareAndValidateValue
+	 * @covers CargoFieldDescription::newFromString
+	 * @dataProvider provideFieldValueData
+	 */
+	public function testPrepareAndValidateValue( $desc, $fieldValue, $expected ) {
+		$fieldDesc = CargoFieldDescription::newFromString( $desc );
+		$actual = $fieldDesc->prepareAndValidateValue( $fieldValue );
+		$this->assertArrayEquals( $actual, $expected );
+	}
+
+	public function provideFieldValueData() {
+		return [
+			[ '', null, [ 'value' => '' ] ],
+			[ 'Date', null, [ 'value' => null ] ],
+
+			[
+				"list (;) of String (allowed values=monday,tuesday,wednesday,thursday,friday)",
+				"monday;friday",
+				[ 'value' => "monday;friday" ]
+			],
+			[
+				"String (allowed values=monday,tuesday,wednesday,thursday,friday)",
+				'tuesday',
+				[ 'value' => 'tuesday' ]
+			],
+
+			[
+				"list (;) of Date",
+				"2019;06-06-2021;",
+				[
+					'value' => "2019-01-01;2021-06-06",
+					'precision' => 1
+				]
+			],
+			[ 'Date', '2020', [ 'value' => "2020-01-01", 'precision' => 3 ] ],
+
+			[
+				"list (;) of Integer",
+				"10;100;1,000;109.95",
+				[ 'value' => "10;100;1000;110" ]
+			],
+			[ 'Integer', '20 000', [ 'value' => 20.0 ] ],
+			[ 'Integer', '2,000', [ 'value' => 2000.0 ] ],
+			[ 'Integer', '200', [ 'value' => 200.0 ] ],
+			[ 'Integer', '20.4', [ 'value' => 20.0 ] ],
+
+			[ 'Float', '1,500', [ 'value' => 1500 ] ],
+
+			[ 'Rating', '3.5', [ 'value' => 3.5 ] ],
+
+			[ 'Boolean', 0, [ 'value' => '0' ] ],
+			[ 'Boolean', '0', [ 'value' => '0' ] ],
+			[ 'Boolean', 'no', [ 'value' => '0' ] ],
+			[ 'Boolean', 'No', [ 'value' => '0' ] ],
+			[ 'Boolean', 1, [ 'value' => '1' ] ],
+			[ 'Boolean', '1', [ 'value' => '1' ] ],
+			[ 'Boolean', 'yes', [ 'value' => '1' ] ],
+			[ 'Boolean', 'Yes', [ 'value' => '1' ] ],
+		];
 	}
 }

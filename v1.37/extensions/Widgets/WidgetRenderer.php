@@ -3,6 +3,8 @@
  * Class holding functions for displaying widgets.
  */
 
+use MediaWiki\MediaWikiServices;
+
 class WidgetRenderer {
 	// The prefix and suffix for the widget strip marker.
 	private static $markerPrefix = "START_WIDGET";
@@ -115,6 +117,18 @@ class WidgetRenderer {
 			return '<div class="error">' . wfMessage( 'widgets-error', htmlentities( $widgetName ) )->text() . ': ' . $e->getMessage() . '</div>';
 		}
 
+		$services = MediaWikiServices::getInstance();
+		if ( method_exists( $services, 'getLanguageConverterFactory' ) ) {
+			// MW 1.35+
+			$languageConverter = $services
+				->getLanguageConverterFactory()
+				->getLanguageConverter( $services->getContentLanguage() );
+			$output = $languageConverter->convert( $output );
+		} else {
+			$parser = $services->getParser();
+			$output = $parser->getTargetLanguage()->convert( $output );
+		}
+
 		// To prevent the widget output from being tampered with, the
 		// compiled HTML is stored and a strip marker with an index to
 		// retrieve it later is returned.
@@ -125,7 +139,7 @@ class WidgetRenderer {
 	public static function outputCompiledWidget( &$out, &$text ) {
 		$text = preg_replace_callback(
 			'/' . self::$markerPrefix . '-(\d+)' . self::$markerSuffix . '/S',
-			function ( $matches ) {
+			static function ( $matches ) {
 				// Can't use self:: in an anonymous function pre PHP 5.4
 				return WidgetRenderer::$widgets[$matches[1]];
 			},

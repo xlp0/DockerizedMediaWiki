@@ -57,7 +57,7 @@ class QueryGeoSearchDb extends QueryGeoSearch {
 			$rows[] = $row;
 		}
 		// sort in PHP because sorting via SQL would involve a filesort
-		usort( $rows, function ( $row1, $row2 ) {
+		usort( $rows, static function ( $row1, $row2 ) {
 			if ( $row1->dist == $row2->dist ) {
 				return 0;
 			}
@@ -72,7 +72,7 @@ class QueryGeoSearchDb extends QueryGeoSearch {
 				$title = Title::newFromRow( $row );
 				$vals = [
 					'pageid' => intval( $row->page_id ),
-					'ns' => intval( $title->getNamespace() ),
+					'ns' => $title->getNamespace(),
 					'title' => $title->getPrefixedText(),
 					'lat' => floatval( $row->gt_lat ),
 					'lon' => floatval( $row->gt_lon ),

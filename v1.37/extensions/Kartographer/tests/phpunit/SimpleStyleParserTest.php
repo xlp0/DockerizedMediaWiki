@@ -14,6 +14,11 @@ use Title;
  * @group Kartographer
  */
 class SimpleStyleParserTest extends MediaWikiTestCase {
+
+	protected function setUp(): void {
+		$this->setMwGlobals( 'wgKartographerMapServer', 'https://maps.wikimedia.org' );
+	}
+
 	/**
 	 * @dataProvider provideExternalData
 	 * @param string $expected

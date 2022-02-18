@@ -1,41 +1,28 @@
 <?php
 
+use MediaWiki\Extension\Math\MathRenderer;
+use MediaWiki\Extension\Math\Tests\MathMockHttpTrait;
+
 /**
  * Test the database access and core functionality of MathRenderer.
  *
- * @covers \MathRenderer
+ * @covers \MediaWiki\Extension\Math\MathRenderer
  *
  * @group Math
  *
  * @license GPL-2.0-or-later
  */
 class MathRendererTest extends MediaWikiTestCase {
+	use MathMockHttpTrait;
+
 	private const SOME_TEX = "a+b";
-	private const TEXVCCHECK_INPUT = '\forall \epsilon \exist \delta';
-	private const TEXVCCHECK_OUTPUT = '\forall \epsilon \exists \delta ';
-
-	protected static $hasRestbase;
-
-	public static function setUpBeforeClass() : void {
-		$rbi = new MathRestbaseInterface();
-		self::$hasRestbase = $rbi->checkBackend( true );
-	}
-
-	/**
-	 * Sets up the fixture, for example, opens a network connection.
-	 * This method is called before a test is executed.
-	 */
-	protected function setUp() : void {
-		parent::setUp();
-		if ( !self::$hasRestbase ) {
-			$this->markTestSkipped( "Can not connect to Restbase Math interface." );
-		}
-	}
+	private const TEXVCCHECK_INPUT = '\sin x^2';
+	private const TEXVCCHECK_OUTPUT = '\sin x^{2}';
 
 	/**
 	 * Checks the tex and hash functions
-	 * @covers \MathRenderer::getTex
-	 * @covers \MathRenderer::__construct
+	 * @covers \MediaWiki\Extension\Math\MathRenderer::getTex
+	 * @covers \MediaWiki\Extension\Math\MathRenderer::__construct
 	 */
 	public function testBasics() {
 		$renderer = $this->getMockForAbstractClass( MathRenderer::class, [ self::SOME_TEX ] );
@@ -47,11 +34,11 @@ class MathRendererTest extends MediaWikiTestCase {
 
 	/**
 	 * Test behavior of writeCache() when nothing was changed
-	 * @covers \MathRenderer::writeCache
+	 * @covers \MediaWiki\Extension\Math\MathRenderer::writeCache
 	 */
 	public function testWriteCacheSkip() {
 		$renderer =
-			$this->getMockBuilder( MathRenderer::class )->setMethods( [
+			$this->getMockBuilder( MathRenderer::class )->onlyMethods( [
 					'writeToDatabase',
 					'render',
 					'getMathTableName',
@@ -64,11 +51,11 @@ class MathRendererTest extends MediaWikiTestCase {
 
 	/**
 	 * Test behavior of writeCache() when values were changed.
-	 * @covers \MathRenderer::writeCache
+	 * @covers \MediaWiki\Extension\Math\MathRenderer::writeCache
 	 */
 	public function testWriteCache() {
 		$renderer =
-			$this->getMockBuilder( MathRenderer::class )->setMethods( [
+			$this->getMockBuilder( MathRenderer::class )->onlyMethods( [
 					'writeToDatabase',
 					'render',
 					'getMathTableName',
@@ -81,7 +68,7 @@ class MathRendererTest extends MediaWikiTestCase {
 
 	public function testSetPurge() {
 		$renderer =
-			$this->getMockBuilder( MathRenderer::class )->setMethods( [
+			$this->getMockBuilder( MathRenderer::class )->onlyMethods( [
 					'render',
 					'getMathTableName',
 					'getHtmlOutput'
@@ -92,9 +79,11 @@ class MathRendererTest extends MediaWikiTestCase {
 	}
 
 	public function testDisableCheckingAlways() {
+		$this->setupGoodMathRestBaseMockHttp();
+
 		$this->setMwGlobals( "wgMathDisableTexFilter", 'never' );
 		$renderer =
-			$this->getMockBuilder( MathRenderer::class )->setMethods( [
+			$this->getMockBuilder( MathRenderer::class )->onlyMethods( [
 					'render',
 					'getMathTableName',
 					'getHtmlOutput',
@@ -106,14 +95,14 @@ class MathRendererTest extends MediaWikiTestCase {
 
 		/** @var MathRenderer $renderer */
 		$this->assertTrue( $renderer->checkTeX() );
-		// now setTex sould not be called again
+		// now setTex should not be called again
 		$this->assertTrue( $renderer->checkTeX() );
 	}
 
 	public function testDisableCheckingNever() {
 		$this->setMwGlobals( "wgMathDisableTexFilter", 'always' );
 		$renderer =
-			$this->getMockBuilder( MathRenderer::class )->setMethods( [
+			$this->getMockBuilder( MathRenderer::class )->onlyMethods( [
 					'render',
 					'getMathTableName',
 					'getHtmlOutput',
@@ -128,9 +117,11 @@ class MathRendererTest extends MediaWikiTestCase {
 	}
 
 	public function testCheckingNewUnknown() {
+		$this->setupGoodMathRestBaseMockHttp();
+
 		$this->setMwGlobals( "wgMathDisableTexFilter", 'new' );
 		$renderer =
-			$this->getMockBuilder( MathRenderer::class )->setMethods( [
+			$this->getMockBuilder( MathRenderer::class )->onlyMethods( [
 					'render',
 					'getMathTableName',
 					'getHtmlOutput',
@@ -143,14 +134,16 @@ class MathRendererTest extends MediaWikiTestCase {
 
 		/** @var MathRenderer $renderer */
 		$this->assertTrue( $renderer->checkTeX() );
-		// now setTex sould not be called again
+		// now setTex should not be called again
 		$this->assertTrue( $renderer->checkTeX() );
 	}
 
 	public function testCheckingNewKnown() {
+		$this->setupGoodMathRestBaseMockHttp();
+
 		$this->setMwGlobals( "wgMathDisableTexFilter", 'new' );
 		$renderer =
-			$this->getMockBuilder( MathRenderer::class )->setMethods( [
+			$this->getMockBuilder( MathRenderer::class )->onlyMethods( [
 					'render',
 					'getMathTableName',
 					'getHtmlOutput',

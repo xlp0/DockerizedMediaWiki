@@ -19,6 +19,9 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
+namespace MediaWiki\Extension\PdfHandler;
+
+use BitmapMetadataHandler;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\Shell\Shell;
 use UtfNormal\Validator;
@@ -36,6 +39,8 @@ class PdfImage {
 	 */
 	private $mFilename;
 
+	public const ITEMS_FOR_PAGE_SIZE = [ 'Pages', 'pages', 'Page size', 'Page rot' ];
+
 	/**
 	 * @param string $filename
 	 */
@@ -48,22 +53,6 @@ class PdfImage {
 	 */
 	public function isValid() {
 		return true;
-	}
-
-	/**
-	 * @return array|bool
-	 */
-	public function getImageSize() {
-		$data = $this->retrieveMetadata();
-		$size = self::getPageSize( $data, 1 );
-
-		if ( $size ) {
-			$width = $size['width'];
-			$height = $size['height'];
-			return [ $width, $height, 'Pdf',
-				"width=\"$width\" height=\"$height\"" ];
-		}
-		return false;
 	}
 
 	/**
@@ -114,9 +103,9 @@ class PdfImage {
 	}
 
 	/**
-	 * @return array|bool|null
+	 * @return array
 	 */
-	public function retrieveMetaData() {
+	public function retrieveMetaData(): array {
 		global $wgPdfInfo, $wgPdftoText;
 
 		if ( $wgPdfInfo ) {
@@ -125,8 +114,10 @@ class PdfImage {
 			// https://bugs.freedesktop.org/show_bug.cgi?id=96801
 			$cmdMeta = [
 				$wgPdfInfo,
-				'-enc', 'UTF-8', # Report metadata as UTF-8 text...
-				'-meta',         # Report XMP metadata
+				# Report metadata as UTF-8 text...
+				'-enc', 'UTF-8',
+				# Report XMP metadata
+				'-meta',
 				$this->mFilename,
 			];
 			$resultMeta = Shell::command( $cmdMeta )
@@ -134,17 +125,21 @@ class PdfImage {
 
 			$cmdPages = [
 				$wgPdfInfo,
-				'-enc', 'UTF-8', # Report metadata as UTF-8 text...
-				'-l', '9999999', # Report page sizes for all pages
+				# Report metadata as UTF-8 text...
+				'-enc', 'UTF-8',
+				# Report page sizes for all pages
+				'-l', '9999999',
 				$this->mFilename,
 			];
 			$resultPages = Shell::command( $cmdPages )
 				->execute();
 
-			$dump = $resultMeta->getStdout() . $resultPages->getStdout();
-			$data = $this->convertDumpToArray( $dump );
+			$data = $this->convertDumpToArray(
+				$resultMeta->getStdout(),
+				$resultPages->getStdout()
+			);
 		} else {
-			$data = null;
+			$data = [];
 		}
 
 		// Read text layer
@@ -169,15 +164,16 @@ class PdfImage {
 	}
 
 	/**
-	 * @param string $dump
-	 * @return array|bool
+	 * @param string $metaDump
+	 * @param string $infoDump
+	 * @return array
 	 */
-	protected function convertDumpToArray( $dump ) {
-		if ( strval( $dump ) == '' ) {
-			return false;
+	protected function convertDumpToArray( $metaDump, $infoDump ): array {
+		if ( strval( $infoDump ) == '' ) {
+			return [];
 		}
 
-		$lines = explode( "\n", $dump );
+		$lines = explode( "\n", $infoDump );
 		$data = [];
 
 		// Metadata is always the last item, and spans multiple lines.
@@ -210,6 +206,10 @@ class PdfImage {
 					$data[$key] = $value;
 				}
 			}
+		}
+		$metaDump = trim( $metaDump );
+		if ( $metaDump !== '' ) {
+			$data['xmp'] = $metaDump;
 		}
 		$data = $this->postProcessDump( $data );
 		return $data;
@@ -279,11 +279,6 @@ class PdfImage {
 					$items['pdf-Version'] = $val;
 					break;
 				case 'Encrypted':
-					// @todo: The value isn't i18n-ised. The appropriate
-					// place to do that is in FormatMetadata.php
-					// should add a hook a there.
-					// For reference, if encrypted this fields value looks like:
-					// "yes (print:yes copy:no change:no addNotes:no)"
 					$items['pdf-Encrypted'] = $val;
 					break;
 				// Note 'pages' and 'Pages' are different keys (!)

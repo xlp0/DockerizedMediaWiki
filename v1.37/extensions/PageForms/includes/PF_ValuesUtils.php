@@ -7,6 +7,8 @@
  * @ingroup PF
  */
 
+use MediaWiki\MediaWikiServices;
+
 class PFValuesUtils {
 
 	/**
@@ -37,7 +39,7 @@ class PFValuesUtils {
 			} elseif ( $value instanceof SMWDIWikiPage ) {
 				$realValue = str_replace( '_', ' ', $value->getDBKey() );
 				if ( $value->getNamespace() != 0 ) {
-					$realValue = MWNamespace::getCanonicalName( $value->getNamespace() ) . ":$realValue";
+					$realValue = PFUtils::getCanonicalName( $value->getNamespace() ) . ":$realValue";
 				}
 				$values[] = $realValue;
 			} else {
@@ -64,19 +66,17 @@ class PFValuesUtils {
 			// Something's wrong - exit
 			return $categories;
 		}
-		$conditions['cl_from'] = $titlekey;
+		$conditions = [ 'cl_from' => $titlekey ];
 		$res = $db->select(
 			'categorylinks',
 			'DISTINCT cl_to',
 			$conditions,
 			__METHOD__
 		);
-		if ( $db->numRows( $res ) > 0 ) {
-			while ( $row = $db->fetchRow( $res ) ) {
-				$categories[] = $row['cl_to'];
-			}
+		while ( $row = $res->fetchRow() ) {
+			$categories[] = $row['cl_to'];
 		}
-		$db->freeResult( $res );
+		$res->free();
 		return $categories;
 	}
 
@@ -93,12 +93,10 @@ class PFValuesUtils {
 			 null,
 			__METHOD__
 		);
-		if ( $db->numRows( $res ) > 0 ) {
-			while ( $row = $db->fetchRow( $res ) ) {
-				$categories[] = $row['cat_title'];
-			}
+		while ( $row = $res->fetchRow() ) {
+			$categories[] = $row['cat_title'];
 		}
-		$db->freeResult( $res );
+		$res->free();
 		return $categories;
 	}
 
@@ -187,11 +185,11 @@ class PFValuesUtils {
 	 * @param string $top_category
 	 * @param int $num_levels
 	 * @param string|null $substring
-	 * @return string
+	 * @return string[]
 	 */
 	public static function getAllPagesForCategory( $top_category, $num_levels, $substring = null ) {
 		if ( $num_levels == 0 ) {
-			return $top_category;
+			return [ $top_category ];
 		}
 		global $wgPageFormsMaxAutocompleteValues, $wgPageFormsUseDisplayTitle;
 
@@ -229,7 +227,7 @@ class PFValuesUtils {
 						]
 					];
 					if ( $substring != null ) {
-						$conditions[] = '(pp_displaytitle.pp_value IS NULL AND (' .
+						$conditions[] = '((pp_displaytitle.pp_value IS NULL OR pp_displaytitle.pp_value = \'\') AND (' .
 							self::getSQLConditionForAutocompleteInColumn( 'page_title', $substring ) .
 							')) OR ' .
 							self::getSQLConditionForAutocompleteInColumn( 'pp_displaytitle.pp_value', $substring ) .
@@ -241,7 +239,8 @@ class PFValuesUtils {
 						$conditions[] = self::getSQLConditionForAutocompleteInColumn( 'page_title', $substring ) . ' OR page_namespace = ' . NS_CATEGORY;
 					}
 				}
-				$res = $db->select( // make the query
+				// Make the query.
+				$res = $db->select(
 					$tables,
 					$columns,
 					$conditions,
@@ -252,7 +251,7 @@ class PFValuesUtils {
 					],
 					$join );
 				if ( $res ) {
-					while ( $res && $row = $db->fetchRow( $res ) ) {
+					while ( $res && $row = $res->fetchRow() ) {
 						if ( !array_key_exists( 'page_title', $row ) ) {
 							continue;
 						}
@@ -288,7 +287,7 @@ class PFValuesUtils {
 							}
 						}
 					}
-					$db->freeResult( $res );
+					$res->free();
 				}
 			}
 			if ( count( $newcategories ) == 0 ) {
@@ -323,6 +322,11 @@ class PFValuesUtils {
 		return $newPages;
 	}
 
+	/**
+	 * @param string $conceptName
+	 * @param string|null $substring
+	 * @return string[]
+	 */
 	public static function getAllPagesForConcept( $conceptName, $substring = null ) {
 		global $wgPageFormsMaxAutocompleteValues, $wgPageFormsAutocompleteOnAllChars;
 
@@ -367,7 +371,14 @@ class PFValuesUtils {
 		}
 
 		if ( $wgPageFormsUseDisplayTitle ) {
-			$properties = PageProps::getInstance()->getProperties( $titles,
+			$services = MediaWikiServices::getInstance();
+			if ( method_exists( $services, 'getPageProps' ) ) {
+				// MW 1.36+
+				$pageProps = $services->getPageProps();
+			} else {
+				$pageProps = PageProps::getInstance();
+			}
+			$properties = $pageProps->getProperties( $titles,
 				[ 'displaytitle', 'defaultsort' ] );
 			foreach ( $titles as $title ) {
 				if ( array_key_exists( $title->getArticleID(), $properties ) ) {
@@ -443,7 +454,7 @@ class PFValuesUtils {
 		$namespaceConditions = [];
 
 		foreach ( $namespaceNames as $namespace_name ) {
-
+			$namespace_name = self::standardizeNamespace( $namespace_name );
 			// Cycle through all the namespace names for this language, and
 			// if one matches the namespace specified in the form, get the
 			// names of all the pages in that namespace.
@@ -524,7 +535,7 @@ class PFValuesUtils {
 
 		$pages = [];
 		$sortkeys = [];
-		while ( $row = $db->fetchRow( $res ) ) {
+		while ( $row = $res->fetchRow() ) {
 			// If there's more than one namespace, include the
 			// namespace prefix in the results - otherwise, don't.
 			if ( array_key_exists( 'page_namespace', $row ) ) {
@@ -547,7 +558,7 @@ class PFValuesUtils {
 				$sortkeys[ $title ] = $title;
 			}
 		}
-		$db->freeResult( $res );
+		$res->free();
 
 		array_multisort( $sortkeys, $pages );
 		return $pages;
@@ -569,8 +580,18 @@ class PFValuesUtils {
 		// The query depends on whether this is a Cargo field, SMW
 		// property, category, SMW concept or namespace.
 		if ( $source_type == 'cargo field' ) {
-			list( $table_name, $field_name ) = explode( '|', $source_name, 2 );
-			$names_array = self::getAllValuesForCargoField( $table_name, $field_name );
+			$arr = explode( '|', $source_name );
+			if ( count( $arr ) == 3 ) {
+				$names_array = self::getValuesForCargoField( $arr[0], $arr[1], $arr[2] );
+			} else {
+				list( $table_name, $field_name ) = explode( '|', $source_name, 2 );
+				$names_array = self::getAllValuesForCargoField( $table_name, $field_name );
+			}
+			// Remove blank/null values from the array.
+			$names_array = array_values( array_filter( $names_array ) );
+		} elseif ( $source_type == 'cargo where' ) {
+			list( $table_name, $field_name, $whereStr ) = explode( '|', $source_name, 3 );
+			$names_array = self::getValuesForCargoField( $table_name, $field_name, $whereStr );
 			// Remove blank/null values from the array.
 			$names_array = array_values( array_filter( $names_array ) );
 		} elseif ( $source_type == 'property' ) {
@@ -580,8 +601,9 @@ class PFValuesUtils {
 		} elseif ( $source_type == 'concept' ) {
 			$names_array = self::getAllPagesForConcept( $source_name );
 		} elseif ( $source_type == 'query' ) {
-			$names_array = self::getAllPagesForQuery( $source_name, 10 );
-		} else { // i.e., $source_type == 'namespace'
+			$names_array = self::getAllPagesForQuery( $source_name );
+		} else {
+			// i.e., $source_type == 'namespace'
 			$names_array = self::getAllPagesForNamespace( $source_name );
 		}
 		return $names_array;
@@ -620,6 +642,11 @@ class PFValuesUtils {
 			$tableName = $field_args['cargo table'];
 			$autocompletionSource = "$tableName|$fieldName";
 			$autocompleteFieldType = 'cargo field';
+		} elseif ( array_key_exists( 'cargo where', $field_args ) ) {
+			$fieldName = $field_args['cargo field'];
+			$tableName = $field_args['cargo table'];
+			$autocompletionSource = "$tableName|$fieldName|$whereStr";
+			$autocompleteFieldType = 'cargo where';
 		} elseif ( array_key_exists( 'semantic_property', $field_args ) ) {
 			$autocompletionSource = $field_args['semantic_property'];
 			$autocompleteFieldType = 'property';
@@ -753,13 +780,13 @@ class PFValuesUtils {
 	 * @return string SQL condition for use in WHERE clause
 	 */
 	public static function getSQLConditionForAutocompleteInColumn( $column, $substring, $replaceSpaces = true ) {
-		global $wgDBtype, $wgPageFormsAutocompleteOnAllChars;
+		global $wgPageFormsAutocompleteOnAllChars;
 
 		$db = wfGetDB( DB_REPLICA );
 
 		// CONVERT() is also supported in PostgreSQL, but it doesn't
 		// seem to work the same way.
-		if ( $wgDBtype == 'mysql' ) {
+		if ( $db->getType() == 'mysql' ) {
 			$column_value = "LOWER(CONVERT($column USING utf8))";
 		} else {
 			$column_value = "LOWER($column)";
@@ -813,7 +840,7 @@ class PFValuesUtils {
 	 * @param array $labels
 	 * @return array
 	 */
-	public static function disambiguateLabels( $labels ) {
+	public static function disambiguateLabels( array $labels ) {
 		asort( $labels );
 		if ( count( $labels ) == count( array_unique( $labels ) ) ) {
 			return $labels;
@@ -842,4 +869,14 @@ class PFValuesUtils {
 		return $labels;
 	}
 
+	/**
+	 * Get the exact canonical namespace string, given a user-created string
+	 *
+	 * @param string $namespaceStr
+	 * @return string
+	 */
+	public static function standardizeNamespace( $namespaceStr ) {
+		$dummyTitle = Title::newFromText( "$namespaceStr:ABC" );
+		return $dummyTitle ? $dummyTitle->getNsText() : $namespaceStr;
+	}
 }

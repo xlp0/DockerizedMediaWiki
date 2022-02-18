@@ -12,6 +12,10 @@ class PFTextAreaInput extends PFFormInput {
 
 	protected $mEditor = null;
 
+	public static function getName(): string {
+		return 'textarea';
+	}
+
 	public static function getDefaultCargoTypes() {
 		return [
 			'Text' => [],
@@ -88,10 +92,6 @@ class PFTextAreaInput extends PFFormInput {
 		} else {
 			$this->mOtherArgs['class'] = $newClasses;
 		}
-	}
-
-	public static function getName() {
-		return 'textarea';
 	}
 
 	public static function getDefaultPropTypes() {
@@ -190,12 +190,9 @@ class PFTextAreaInput extends PFFormInput {
 		$input_id = $this->mInputName == 'pf_free_text' ? 'pf_free_text' : "input_$wgPageFormsFieldNum";
 
 		if ( $this->mEditor == 'wikieditor' ) {
-			global $wgTitle, $wgOut;
-			if ( $wgTitle !== null ) {
-				$article = new Article( $wgTitle );
-				$editPage = new EditPage( $article );
-				WikiEditorHooks::editPageShowEditFormInitial( $editPage, $wgOut );
-			}
+			global $wgOut;
+			$wgOut->addModuleStyles( 'ext.wikiEditor.styles' );
+			$wgOut->addModules( 'ext.wikiEditor' );
 			$className = 'wikieditor ';
 		} elseif ( $this->mEditor == 'visualeditor' ) {
 			$className = 'visualeditor ';
@@ -270,9 +267,15 @@ class PFTextAreaInput extends PFFormInput {
 		if ( array_key_exists( 'placeholder', $this->mOtherArgs ) ) {
 			$textarea_attrs['placeholder'] = $this->mOtherArgs['placeholder'];
 		}
+		if ( array_key_exists( 'autocapitalize', $this->mOtherArgs ) ) {
+			$textarea_attrs['autocapitalize'] = $this->mOtherArgs['autocapitalize'];
+		}
 		if ( array_key_exists( 'feeds to map', $this->mOtherArgs ) ) {
 			global $wgPageFormsMapsWithFeeders;
 			$targetMapName = $this->mOtherArgs['feeds to map'];
+			if ( array_key_exists( 'part_of_multiple', $this->mOtherArgs ) ) {
+				$targetMapName = str_replace( '[', '[num][', $targetMapName );
+			}
 			$wgPageFormsMapsWithFeeders[$targetMapName] = true;
 			$textarea_attrs['data-feeds-to-map'] = $targetMapName;
 		}
@@ -284,7 +287,7 @@ class PFTextAreaInput extends PFFormInput {
 	 * Returns the HTML code to be included in the output page for this input.
 	 * @return string
 	 */
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		$textarea_attrs = $this->getTextAreaAttributes();
 
 		$text = Html::element( 'textarea', $textarea_attrs, $this->mCurrentValue );

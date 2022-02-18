@@ -3,7 +3,8 @@
 		"authors": [
 			"Eduardo Addad de Oliveira",
 			"Eduardoaddad",
-			"Nemo bis"
+			"Nemo bis",
+			"Svjatysberega"
 		]
 	},
 	"cargo-desc": "Armazenamento e pesquisa de dados usados em predefinições",
@@ -14,6 +15,7 @@
 	"cargo-notable": "Erro: o nome da tabela tem de ser especificado.",
 	"cargo-unknowntable": "Erro: a tabela $1 não foi encontrada.",
 	"recreatedata": "Recriar dados",
+	"recreatecargodata": "Recriar dados",
 	"action-recreatecargodata": "recriar dados Cargo",
 	"right-recreatecargodata": "Recriar dados contidos nas tabelas Cargo",
 	"action-deletecargodata": "eliminar dados Cargo",
@@ -111,6 +113,7 @@
 	"pagevalues": "Valores de página",
 	"cargo-pagevaluesfor": "Valores de página para \"$1\"",
 	"cargo-pagevalues-tablevalues": "Valores de \"$1\"",
+	"cargo-pagevalues-tableinfo-numrows": "$ 1 {{PLURAL:$1|linha é armazenada|linhas são armazenadas}} para esta página",
 	"drilldown": "Detalhar",
 	"cargo-drilldown-choosetable": "Escolha uma tabela",
 	"cargo-drilldown-allpages": "Todas as páginas",
@@ -144,5 +147,12 @@
 	"cargo-purgecache-failed": "Falha na limpeza de cache",
 	"specialpages-group-cargo": "Cargo",
 	"cargo-pageschemas-cargofield": "Campo Cargo",
-	"cargo-pageschemas-tablename": "Nome da tabela:"
+	"cargo-pageschemas-tablename": "Nome da tabela:",
+	"cargo-gantt-zoomlevel": "Nível de zoom:",
+	"cargo-gantt-hours": "Horas",
+	"cargo-gantt-days": "Dias",
+	"cargo-gantt-months": "Meses",
+	"cargo-gantt-years": "Anos",
+	"cargo-field-type": "Tipo de campo:",
+	"cargo-allowed-values": "Valores permitidos:"
 }

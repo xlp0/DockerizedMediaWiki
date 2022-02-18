@@ -32,6 +32,7 @@ class CargoSQLQuery {
 	public $mQueryLimit;
 	public $mOffset;
 	public $mSearchTerms = [];
+	public $mDateFieldPairs = [];
 
 	public function __construct() {
 		$this->mCargoDB = CargoUtils::getDB();
@@ -113,7 +114,8 @@ class CargoSQLQuery {
 			'/\-\-/' => '--',
 			'/#/' => '#',
 		];
-
+		// Replace # with corresponding Unicode value to prevent security leaks.
+		$whereStr = str_replace( '#', '\u0023', $whereStr );
 		// HTML-decode the string - this is necessary if the query
 		// contains a call to {{PAGENAME}} and the page name has any
 		// special characters, because {{PAGENAME]] unfortunately
@@ -308,6 +310,17 @@ class CargoSQLQuery {
 				throw new MWException( "Table and field name must both be specified in '$joinPart2'." );
 			}
 			list( $table2, $field2 ) = $tableAndField2;
+
+			$tableAliases = array_keys( $this->mAliasedTableNames );
+			// Order the tables in the join condition by their relative positions in table names.
+			$position1 = array_search( $table1, $tableAliases );
+			$position2 = array_search( $table2, $tableAliases );
+			if ( $position2 < $position1 ) {
+				// Swap tables and fields if table2 comes before table1 in table names.
+				[ $table1, $table2 ] = [ $table2, $table1 ];
+				[ $field1, $field2 ] = [ $field2, $field1 ];
+			}
+
 			$joinCond = [
 				'joinType' => 'LEFT OUTER JOIN',
 				'table1' => $table1,
@@ -318,6 +331,15 @@ class CargoSQLQuery {
 			];
 			$this->mCargoJoinConds[] = $joinCond;
 		}
+
+		// Sort the join conditions by the table names.
+		usort( $this->mCargoJoinConds, static function ( $joinCond1, $joinCond2 ) use( $tableAliases ) {
+			$index1 = array_search( $joinCond1['table1'], $tableAliases );
+			$index2 = array_search( $joinCond2['table1'], $tableAliases );
+			if ( $index1 == $index2 ) { return 0;
+			}
+			return $index1 < $index2 ? -1 : 1;
+		} );
 
 		// Now validate, to make sure that all the tables
 		// are "joined" together. There's probably some more
@@ -615,7 +637,12 @@ class CargoSQLQuery {
 			$useListTable = ( $fieldName == '_value' );
 			if ( $useListTable ) {
 				if ( $tableName != null ) {
-					list( $tableName, $fieldName ) = explode( '__', $tableName, 2 );
+					if ( strpos( $tableName, '__' ) !== false ) {
+						list( $tableName, $fieldName ) = explode( '__', $tableName, 2 );
+					} else {
+						// Support directly operating on list table fields
+						$fieldName = null;
+					}
 				} else {
 					// We'll assume that there's exactly one
 					// "field table" in the list of tables -
@@ -1572,7 +1599,7 @@ class CargoSQLQuery {
 
 				$curValue = $row->$alias;
 				if ( $curValue instanceof DateTime ) {
-					// MSSQL dates only?
+					// @TODO - This code may no longer be necessary.
 					$resultsRow[$alias] = $curValue->format( DateTime::W3C );
 				} else {
 					// It's a string.
@@ -1617,6 +1644,88 @@ class CargoSQLQuery {
 			return $beforeText . $this->mCargoDB->tableName( $tableName ) . "." .
 				   $this->mCargoDB->addIdentifierQuotes( $fieldName );
 		}
+	}
+
+	/**
+	 * Figure out which fields, if any, in this query are supposed to
+	 * represent start and end dates, based on a combination of field types,
+	 * order (start is expected to be listed before end) and alias.
+	 * @todo - this logic currently allows for any number of start/end
+	 * date pairs, but that may be overly complicated - it may be safe to
+	 * assume that any query contains no more than one start date and end
+	 * date, and any other dates can just be ignored, i.e. treated as
+	 * display fields.
+	 */
+	public function determineDateFields() {
+		foreach ( $this->mFieldDescriptions as $alias => $description ) {
+			if ( isset( $this->mAliasedFieldNames[$alias] ) ) {
+				$realFieldName = $this->mAliasedFieldNames[$alias];
+			} else {
+				$realFieldName = $alias;
+			}
+			$curNameAndAlias = [ $realFieldName, $alias ];
+			if ( $alias == 'start' || $description->mType == 'Start date' || $description->mType == 'Start datetime' ) {
+				$foundMatch = false;
+				foreach ( $this->mDateFieldPairs as $i => &$datePair ) {
+					if ( array_key_exists( 'end', $datePair ) && !array_key_exists( 'start', $datePair ) ) {
+						$datePair['start'] = $curNameAndAlias;
+						$foundMatch = true;
+						break;
+					}
+				}
+				if ( !$foundMatch ) {
+					$this->mDateFieldPairs[] = [ 'start' => $curNameAndAlias ];
+				}
+			} elseif ( $alias == 'end' || $description->mType == 'End date' || $description->mType == 'End datetime' ) {
+				$foundMatch = false;
+				foreach ( $this->mDateFieldPairs as $i => &$datePair ) {
+					if ( array_key_exists( 'start', $datePair ) && !array_key_exists( 'end', $datePair ) ) {
+						$datePair['end'] = $curNameAndAlias;
+						$foundMatch = true;
+						break;
+					}
+				}
+				if ( !$foundMatch ) {
+					$this->mDateFieldPairs[] = [ 'end' => $curNameAndAlias ];
+				}
+			} elseif ( $description->mType == 'Date' || $description->mType == 'Datetime' ) {
+				$foundMatch = false;
+				foreach ( $this->mDateFieldPairs as $i => &$datePair ) {
+					if ( array_key_exists( 'end', $datePair ) && !array_key_exists( 'start', $datePair ) ) {
+						$datePair['start'] = $curNameAndAlias;
+						$foundMatch = true;
+						break;
+					} elseif ( array_key_exists( 'start', $datePair ) && !array_key_exists( 'end', $datePair ) ) {
+						$datePair['end'] = $curNameAndAlias;
+						$foundMatch = true;
+						break;
+					}
+				}
+				if ( !$foundMatch ) {
+					$this->mDateFieldPairs[] = [ 'start' => $curNameAndAlias ];
+				}
+			}
+		}
+
+		// Error-checking.
+		if ( count( $this->mDateFieldPairs ) == 0 ) {
+			throw new MWException( "Error: No date fields were found in this query." );
+		}
+		foreach ( $this->mDateFieldPairs as $datePair ) {
+			if ( !array_key_exists( 'start', $datePair ) ) {
+				throw new MWException( "Error: No corresponding start date field was found for the end date field {$datePair['end'][0]}." );
+			}
+		}
+	}
+
+	public function getMainStartAndEndDateFields() {
+		if ( count( $this->mDateFieldPairs ) == 0 ) {
+			$this->determineDateFields();
+		}
+		$firstFieldPair = $this->mDateFieldPairs[0];
+		$startDateField = $firstFieldPair['start'][1];
+		$endDateField = ( array_key_exists( 'end', $firstFieldPair ) ) ? $firstFieldPair['end'][1] : null;
+		return [ $startDateField, $endDateField ];
 	}
 
 }

@@ -1,7 +1,6 @@
 Object3D = function () {
-  this.canvas   = {};
   this.camera   = {};
-  this.scnere   = {};
+  this.scene    = {};
   this.renderer = {};
   this.controls = {};
   this.model    = false;
@@ -14,22 +13,11 @@ Object3D = function () {
 var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame ||
 window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
 
-var cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAnimationFrame;
-
-
 Object3D.prototype.resize = function() {
   var value = Math.max(Math.min(((window.innerHeight !== 0) ? window.innerHeight : screen.height) - 200, ((window.innerWidth !== 0) ? window.innerWidth : screen.width) - 300), 300);
   this.canvas.width = value;
   this.canvas.height = value;
-//  this.render();
 };
-
-Object3D.prototype.render = function() {
-  this.resize();
-  this.renderer.setSize(this.canvas.width, this.canvas.height);
-  this.renderer.clear();
-  this.render();
-}
 
 Object3D.prototype.rotate = function(x, y) {
   this.model.rotation.set(x, y, 0);
@@ -37,18 +25,21 @@ Object3D.prototype.rotate = function(x, y) {
 };
 
 Object3D.prototype.rotate_relative = function(x, y) {
-  this.model.rotation.set(this.model.rotation.x+x, this.model.rotation.y+y, 0);
-  this.render();
+  this.rotate(this.model.rotation.x+x, this.model.rotation.y+y);
 };
 
 Object3D.prototype.set_params = function(def){
   this.params.file            = this.canvas.getAttribute('file');
   this.params.color           = this.canvas.getAttribute('color')    !== null ? parseInt(  this.canvas.getAttribute('color'),16)    : def.color;
   this.params.opacity         = this.canvas.getAttribute('opacity')  !== null ? parseFloat(this.canvas.getAttribute('opacity') )    : def.opacity;
-  this.params.scale           = this.canvas.getAttribute('scale')    !== null ? parseFloat(this.canvas.getAttribute('scale')   )    : def.scale;
+  this.params.scale           = this.canvas.getAttribute('scale')    !== null ? parseFloat(this.canvas.getAttribute('scale')   )    : undefined;
   this.params.z               = this.canvas.getAttribute('z')        !== null ? parseFloat(this.canvas.getAttribute('z')       )    : def.z;
+  this.params.zoom            = this.canvas.getAttribute('zoom')     !== null ? ((this.canvas.getAttribute('zoom') === "1" ||
+                                                                                  this.canvas.getAttribute('zoom') === "true")) : def.zoom;
+  this.params.pan             = this.canvas.getAttribute('pan')      !== null ? ((this.canvas.getAttribute('pan') === "1" ||
+                                                                                  this.canvas.getAttribute('pan') === "true")) : def.pan;
   this.params.norotate        = this.canvas.getAttribute('norotate') !== null ? ((this.canvas.getAttribute('norotate') === "1" ||
-                                                                                  this.canvas.getAttribute('norotate') === "true") ? true : false) : def.norotate;
+                                                                                  this.canvas.getAttribute('norotate') === "true")) : def.norotate;
 };
 
 Object3D.prototype.create_scene = function() {
@@ -90,15 +81,18 @@ Object3D.prototype.add_renderer = function() {
 
 Object3D.prototype.add_controls = function() {
   this.controls = new THREE.OrbitControls(this.camera, this.canvas);
+  this.controls.setZoom(this.params.zoom);
+  this.controls.setPan(this.params.pan);
 };
 
 Object3D.prototype.add_plane = function() {
-  this.plane = new THREE.GridHelper(150, 8);
+  this.plane = new THREE.GridHelper(window.plane_size, 8);
   this.plane.setColors(plane_color, plane_color);
-  this.plane.position.y = -75;
+  this.plane.position.y = -window.plane_size / 2;
   this.plane.updateMatrix();
   this.scene.add(this.plane);
 };
+
 function create_material(color,opacity) {
   var material = model_material.clone(model_material);
   material.color.setHex(color);
@@ -107,7 +101,11 @@ function create_material(color,opacity) {
 }
 
 Object3D.prototype.add_model = function(mesh) {
-  mesh.scale.x = mesh.scale.y = mesh.scale.z = this.params.scale;
+  var box = new THREE.Box3().setFromObject(mesh);
+  var size = box.size(size);
+  var max_axis = Math.max(size.x, size.y, size.z);
+  var scale = window.plane_size / max_axis;
+  mesh.scale.multiplyScalar((this.params.scale !== undefined ? this.params.scale : 1.0) * scale);
   mesh.position.y = this.params.z;
   mesh.updateMatrix();
   this.scene.add(mesh);
@@ -117,9 +115,12 @@ Object3D.prototype.add_model = function(mesh) {
 };
 
 Object3D.prototype.load_obj = function(mesh) {
+  params = this.params;
   mesh.traverse(function(child) {
     if (child instanceof THREE.Mesh) {
-      child.material = create_material(this.params.color,this.params);
+      child.material = create_material(params.color, params.opacity);
+      child.geometry.computeBoundingBox();
+      child.geometry.center();
     }
   });
   this.add_model(mesh);
@@ -128,22 +129,19 @@ Object3D.prototype.load_obj = function(mesh) {
 Object3D.prototype.load_json = function(geometry) {
   geometry.computeBoundingBox();
   geometry.center();
-
-  var material = create_material(this.params.color,this.params);
+  var material = create_material(this.params.color, this.params.opacity);
   var mesh = new THREE.Mesh(geometry, material);
   this.add_model(mesh);
 };
 
 Object3D.prototype.load_file = function() {
-  var loader, self = this;
+  var load_func = this.load_json.bind(this);
+  var loader = undefined;
 
   if (this.params.file.match(/\.obj$/ig) !== null) {
 
     loader = new THREE.OBJLoader();
-    loader.load(this.params.file, function(geometry){
-      self.load_obj(geometry);
-    });
-    return true;
+    load_func = this.load_obj.bind(this);
 
   } else if (this.params.file.match(/\.(stl|stlb)$/ig) !== null) {
 
@@ -163,8 +161,9 @@ Object3D.prototype.load_file = function() {
   }
 
   loader.load(this.params.file, function(geometry){
-    self.load_json(geometry);
+    load_func(geometry);
   });
+
   return true;
 };
 
@@ -174,11 +173,12 @@ Object3D.prototype.render = function() {
 };
 
 Object3D.prototype.animate = function() {
-  if (this.model === undefined) return;
-  //setTimeout( function() {requestAnimationFrame( animate );}, 1000 / 30 );
-  var frame = requestAnimationFrame(this.animate.bind(this));
+  requestAnimationFrame(this.animate.bind(this));
+  if (!this.model) return;
   this.animation = true;
-  if (this.model && this.rotation) {
+  var is_visible = this.canvas.getAttribute('visible') !== null ? ((this.canvas.getAttribute('visible') === "1" ||
+                                                                    this.canvas.getAttribute('visible') === "true")) : true;
+  if (is_visible && this.rotation) {
       this.rotate_relative(speedX, speedY);
   }
 };
@@ -200,19 +200,22 @@ var CanvasChangedEvent = document.createEvent('Event'),
   page_params = document.getElementsByTagName('body')[0].className,
   dark = (page_params.indexOf("dark") !== -1),
   edit = (page_params.indexOf("action-edit") !== -1 || page_params.indexOf("action-submit") !== -1);
+
 if (!edit) document.addEventListener("keydown", onKeyDown, false);
 CanvasChangedEvent.initEvent('canvas_changed', false, false);
 DoubleClickEvent.initEvent(  'dbl_click',      false, false);
 
 window.rotation = true;
+window.plane_size = 150;
 window.speedX = 0.01;
 window.speedY = 0.015;
 window.default_params = {
     color: 0xff00ff,
     opacity: 0.8,
-    scale: 100,
     z: 75,
-    norotate: false
+    norotate: false,
+    zoom: false,
+    pan: false,
 };
 window.keys = {
     LEFT: 37,
@@ -233,6 +236,22 @@ window.model_material   = new THREE.MeshLambertMaterial({
 });
 
 window.recreate_3d = recreate_objects;
+
+if (IntersectionObserver !== undefined) {
+  var options = {
+    threshold: 0.2
+  }
+  var callback = function(entries, observer) {
+    entries.forEach(function(entry) {
+      entry.target.setAttribute("visible", entry.isIntersecting.toString());
+    })
+  };
+
+  window.observer_3d = new IntersectionObserver(callback, options);
+} else {
+  window.observer_3d = undefined;
+}
+
 recreate_objects();
 
 
@@ -265,28 +284,36 @@ function UnRotate(event) {
 }
 
 function recreate_objects() {
+  if (window.observer_3d !== undefined) {
+    window.observer_3d.disconnect();
+  }
+
   var objects = document.getElementsByClassName('threed-container');
+
   objects.forEach(function(item, id) {
     if (item.object === undefined) {
       item.object = new Object3D();
+
       item.object.canvas = item;
       if (item.width === 0 || item.height === 0) {
         window.addEventListener("resize", item.object.redraw);
         item.object.resize();
       }
 
+      item.object.set_params(window.default_params);
       item.object.create_scene();
       item.object.add_light();
       item.object.add_camera();
       item.object.add_renderer();
       item.object.add_controls();
       item.object.add_plane();
-      item.object.set_params(window.default_params);
 
       item.object.load_file();
     }
-      item.addEventListener("canvas_changed", OnCanvasRedraw, false);
-      item.addEventListener("dbl_click", UnRotate, false);
+
+    item.addEventListener("canvas_changed", OnCanvasRedraw, false);
+    item.addEventListener("dbl_click", UnRotate, false);
+
     if(item.className.indexOf('locked') === -1){
       item.object.controls.setRotate(   true);
       item.object.controls.setDblClick( true);
@@ -294,6 +321,13 @@ function recreate_objects() {
       item.object.controls.setRotate(  false);
       item.object.controls.setDblClick(false);
     }
+
+    item.object.render();
+
+    if (window.observer_3d !== undefined) {
+      window.observer_3d.observe(item);
+    }
+
     if (item.object.animation === false) item.object.animate();
   });
 }

@@ -1,7 +1,9 @@
 <?php
 
+use MediaWiki\Extension\Math\MathPng;
+
 /**
- * @covers \MathPng
+ * @covers \MediaWiki\Extension\Math\MathPng
  *
  * @license GPL-2.0-or-later
  */
@@ -18,7 +20,7 @@ class MathPngTest extends MediaWikiTestCase {
 
 	public function testOutput() {
 		$renderer = $this->getMockBuilder( MathPng::class )
-			->setMethods( [ 'getFallbackImage' ] )
+			->onlyMethods( [ 'getFallbackImage' ] )
 			->getMock();
 		$renderer->method( 'getFallbackImage' )
 			->willReturn( self::TEST_DUMMY );

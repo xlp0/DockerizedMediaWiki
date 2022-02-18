@@ -5,6 +5,7 @@
 			"Saederup92"
 		]
 	},
+	"cargo-unknowntable": "Fejl: Tabellen $1 blev ikke fundet.",
 	"cargo-viewdata-tables": "Tabel(ler):",
 	"cargo-viewdata-fields": "Felt(er):",
 	"cargo-viewdata-where": "Hvor:",
@@ -36,5 +37,10 @@
 	"cargo-drilldown-mapformat": "Kort",
 	"cargo-drilldown-timelineformat": "Tidslinje",
 	"cargo-drilldown-galleryformat": "Galleri",
-	"cargo-drilldown-calendarformat": "Kalender"
+	"cargo-drilldown-calendarformat": "Kalender",
+	"cargo-gantt-hours": "Timer",
+	"cargo-gantt-days": "Dage",
+	"cargo-gantt-months": "Måneder",
+	"cargo-gantt-years": "År",
+	"cargo-allowed-values": "Tilladte værdier:"
 }

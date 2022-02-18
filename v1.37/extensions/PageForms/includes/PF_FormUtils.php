@@ -1,6 +1,8 @@
 <?php
 
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Revision\RenderedRevision;
+use OOUI\ButtonInputWidget;
 
 /**
  * Utilities for the display and retrieval of forms.
@@ -98,11 +100,13 @@ class PFFormUtils {
 		}
 
 		// We can't use OOUI\FieldLayout here, because it will make the display too wide.
-		$labelSpan = Html::element( 'span', [ 'class' => 'oo-ui-fieldLayout-header' ], $label );
+		$labelWidget = new OOUI\LabelWidget( [
+			'label' => new OOUI\HtmlSnippet( $label )
+		] );
 		$text = Html::rawElement(
 			'label',
 			[ 'title' => wfMessage( 'tooltip-minoredit' )->parse() ],
-			new OOUI\CheckboxInputWidget( $attrs ) . $labelSpan
+			new OOUI\CheckboxInputWidget( $attrs ) . $labelWidget
 		);
 		$text = Html::rawElement( 'div', [ 'style' => 'display: inline-block; padding: 12px 16px 12px 0;' ], $text );
 
@@ -117,15 +121,34 @@ class PFFormUtils {
 		// this code borrowed from /includes/EditPage.php
 		if ( !$form_submitted ) {
 			$user = RequestContext::getMain()->getUser();
-			if ( $user->getOption( 'watchdefault' ) ) {
-				# Watch all edits
-				$is_checked = true;
-			} elseif ( $user->getOption( 'watchcreations' ) && !$wgTitle->exists() ) {
-				# Watch creations
-				$is_checked = true;
-			} elseif ( $user->isWatched( $wgTitle ) ) {
-				# Already watched
-				$is_checked = true;
+			if ( method_exists( \MediaWiki\Watchlist\WatchlistManager::class, 'isWatched' ) ) {
+				// MediaWiki 1.37+
+				// UserOptionsLookup::getOption was introduced in MW 1.35
+				$services = MediaWikiServices::getInstance();
+				$userOptionsLookup = $services->getUserOptionsLookup();
+				$watchlistManager = $services->getWatchlistManager();
+				if ( $userOptionsLookup->getOption( $user, 'watchdefault' ) ) {
+					# Watch all edits
+					$is_checked = true;
+				} elseif ( $userOptionsLookup->getOption( $user, 'watchcreations' ) &&
+					!$wgTitle->exists() ) {
+					# Watch creations
+					$is_checked = true;
+				} elseif ( $watchlistManager->isWatched( $user, $wgTitle ) ) {
+					# Already watched
+					$is_checked = true;
+				}
+			} else {
+				if ( $user->getOption( 'watchdefault' ) ) {
+					# Watch all edits
+					$is_checked = true;
+				} elseif ( $user->getOption( 'watchcreations' ) && !$wgTitle->exists() ) {
+					# Watch creations
+					$is_checked = true;
+				} elseif ( $user->isWatched( $wgTitle ) ) {
+					# Already watched
+					$is_checked = true;
+				}
 			}
 		}
 		if ( $label == null ) {
@@ -144,11 +167,13 @@ class PFFormUtils {
 		}
 
 		// We can't use OOUI\FieldLayout here, because it will make the display too wide.
-		$labelSpan = Html::element( 'span', [ 'class' => 'oo-ui-fieldLayout-header' ], $label );
+		$labelWidget = new OOUI\LabelWidget( [
+			'label' => new OOUI\HtmlSnippet( $label )
+		] );
 		$text = Html::rawElement(
 			'label',
 			[ 'title' => wfMessage( 'tooltip-watch' )->parse() ],
-			new OOUI\CheckboxInputWidget( $attrs ) . $labelSpan
+			new OOUI\CheckboxInputWidget( $attrs ) . $labelWidget
 		);
 		$text = Html::rawElement( 'div', [ 'style' => 'display: inline-block; padding: 12px 16px 12px 0;' ], $text );
 
@@ -161,7 +186,7 @@ class PFFormUtils {
 	 * @param string $value
 	 * @param string $type
 	 * @param array $attrs
-	 * @return string
+	 * @return ButtonInputWidget
 	 */
 	static function buttonHTML( $name, $value, $type, $attrs ) {
 		$attrs += [
@@ -169,7 +194,16 @@ class PFFormUtils {
 			'name' => $name,
 			'label' => $value
 		];
-		return new OOUI\ButtonInputWidget( $attrs );
+		$button = new ButtonInputWidget( $attrs );
+		// Special handling for 'class'.
+		if ( isset( $attrs['class'] ) ) {
+			// Make sure it's an array.
+			if ( is_string( $attrs['class'] ) ) {
+				$attrs['class'] = [ $attrs['class'] ];
+			}
+			$button->addClasses( $attrs['class'] );
+		}
+		return $button;
 	}
 
 	static function saveButtonHTML( $is_disabled, $label = null, $attr = [] ) {
@@ -292,7 +326,12 @@ class PFFormUtils {
 		return new OOUI\FieldLayout( $buttonHTML );
 	}
 
-	// Much of this function is based on MediaWiki's EditPage::showEditForm()
+	/**
+	 * Much of this function is based on MediaWiki's EditPage::showEditForm().
+	 * @param bool $form_submitted
+	 * @param bool $is_disabled
+	 * @return string
+	 */
 	static function formBottom( $form_submitted, $is_disabled ) {
 		$text = <<<END
 	<br />
@@ -305,7 +344,13 @@ END;
 			$text .= self::minorEditInputHTML( $form_submitted, $is_disabled, false );
 		}
 
-		if ( $user->isLoggedIn() ) {
+		if ( method_exists( $user, 'isRegistered' ) ) {
+			// MW 1.34+
+			$userIsRegistered = $user->isRegistered();
+		} else {
+			$userIsRegistered = $user->isLoggedIn();
+		}
+		if ( $userIsRegistered ) {
 			$text .= self::watchInputHTML( $form_submitted, $is_disabled );
 		}
 
@@ -326,7 +371,12 @@ END;
 		return $text;
 	}
 
-	// Loosely based on MediaWiki's EditPage::getPreloadedContent().
+	/**
+	 * Loosely based on MediaWiki's EditPage::getPreloadedContent().
+	 *
+	 * @param string $preload
+	 * @return string
+	 */
 	static function getPreloadedText( $preload ) {
 		if ( $preload === '' ) {
 			return '';
@@ -350,13 +400,7 @@ END;
 			}
 		}
 
-		$rev = Revision::newFromTitle( $preloadTitle );
-		if ( !is_object( $rev ) ) {
-			return '';
-		}
-
-		$content = $rev->getContent();
-		$text = ContentHandler::getContentText( $content );
+		$text = PFUtils::getPageText( $preloadTitle );
 		// Remove <noinclude> sections and <includeonly> tags from text
 		$text = StringUtils::delimiterReplace( '<noinclude>', '</noinclude>', '', $text );
 		$text = strtr( $text, [ '<includeonly>' => '', '</includeonly>' => '' ] );
@@ -455,8 +499,7 @@ END;
 			$regexp,
 
 			// This is essentially a copy of Parser::insertStripItem().
-			// The 'use' keyword will bump the minimum PHP version to 5.3
-			function ( array $matches ) use ( &$items, $rnd ) {
+			static function ( array $matches ) use ( &$items, $rnd ) {
 				$markerIndex = count( $items );
 				$items[] = $matches[0];
 				return "$rnd-item-$markerIndex-$rnd";
@@ -478,7 +521,7 @@ END;
 		}
 		$form_def = preg_replace_callback(
 			"/{$rnd}-item-(\d+)-{$rnd}/",
-			function ( array $matches ) use ( $items ) {
+			static function ( array $matches ) use ( $items ) {
 				$markerIndex = (int)$matches[1];
 				return $items[$markerIndex];
 			},
@@ -613,9 +656,9 @@ END;
 	 * @param RenderedRevision $renderedRevision
 	 * @return bool
 	 */
-	public static function purgeCache2( MediaWiki\Revision\RenderedRevision $renderedRevision ) {
+	public static function purgeCache2( RenderedRevision $renderedRevision ) {
 		$articleID = $renderedRevision->getRevision()->getPageId();
-		if ( method_exists( 'MediaWikiServices', 'getWikiPageFactory' ) ) {
+		if ( method_exists( MediaWikiServices::class, 'getWikiPageFactory' ) ) {
 			// MW 1.36+
 			$wikiPage = MediaWikiServices::getInstance()->getWikiPageFactory()->newFromID( $articleID );
 		} else {
@@ -635,7 +678,7 @@ END;
 	 */
 	public static function getFormCache() {
 		global $wgPageFormsFormCacheType, $wgParserCacheType;
-		$ret = wfGetCache( ( $wgPageFormsFormCacheType !== null ) ? $wgPageFormsFormCacheType : $wgParserCacheType );
+		$ret = ObjectCache::getInstance( ( $wgPageFormsFormCacheType !== null ) ? $wgPageFormsFormCacheType : $wgParserCacheType );
 		return $ret;
 	}
 

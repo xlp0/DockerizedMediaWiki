@@ -1,6 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
+			"A2y4",
+			"MathXplore",
 			"Nemo bis",
 			"Omotecho",
 			"Otokoume",
@@ -43,6 +45,11 @@
 	"cargo-drilldown-allpages": "すべてのページ",
 	"cargo-drilldown-allfiles": "すべてのファイル",
 	"cargo-drilldown-or": "または",
+	"cargo-drilldown-search": "検索",
 	"cargo-drilldown-galleryformat": "ギャラリー",
-	"cargo-pageschemas-tablename": "テーブル名:"
+	"cargo-drilldown-gallerycaption": "[[$1]]",
+	"cargo-downloadzip": "ZIPをダウンロード",
+	"cargo-pageschemas-tablename": "テーブル名:",
+	"cargo-field-type": "フィールドの種類:",
+	"cargo-allowed-values": "許容値："
 }

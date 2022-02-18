@@ -34,28 +34,24 @@ class CargoBPMNData {
 		return $tableSchema;
 	}
 
-	public static function storeBPMNValues( $title ) {
+	public static function storeBPMNValues( $title, $createReplacement ) {
 		if ( $title == null ) {
 			return;
 		}
 
-		// If there is no _bpmnData table, getTableSchemas() will
+		$tableName = $createReplacement ? '_bpmnData__NEXT' : '_bpmnData';
+
+		// If this table does not exist, getTableSchemas() will
 		// throw an error.
 		try {
-			$tableSchemas = CargoUtils::getTableSchemas( [ '_bpmnData' ] );
+			$tableSchemas = CargoUtils::getTableSchemas( [ $tableName ] );
 		} catch ( MWException $e ) {
 			return;
 		}
 
-		if ( class_exists( 'MediaWiki\Revision\SlotRecord' ) ) {
-			// MW 1.32+
-			$revisionRecord = MediaWiki\MediaWikiServices::getInstance()->getRevisionLookup()->getRevisionByTitle( $title );
-			$role = MediaWiki\Revision\SlotRecord::MAIN;
-			$pageText = $revisionRecord->getContent( $role )->getNativeData();
-		} else {
-			$revision = Revision::newFromTitle( $title );
-			$pageText = $revision->getContent()->getNativeData();
-		}
+		$revisionRecord = MediaWiki\MediaWikiServices::getInstance()->getRevisionLookup()->getRevisionByTitle( $title );
+		$role = MediaWiki\Revision\SlotRecord::MAIN;
+		$pageText = $revisionRecord->getContent( $role )->getNativeData();
 		$xml = new SimpleXMLElement( $pageText );
 
 		$allBPMNValues = [];
@@ -64,14 +60,15 @@ class CargoBPMNData {
 		foreach ( $xml->children( 'bpmn', true ) as $key => $value ) {
 			if ( $key == 'process' ) {
 				foreach ( $value->children( 'bpmn', true ) as $k2 => $v2 ) {
-					if ( in_array( $k2, [ 'task', 'exclusiveGateway', 'sequenceFlow', 'startEvent' ] ) ) {
+					if ( in_array( $k2, [ 'task', 'exclusiveGateway', 'sequenceFlow', 'startEvent', 'endEvent' ] ) ) {
 						$bpmnValues = [ '_type' => $k2, '_connectsTo' => [] ];
 						foreach ( $v2->attributes() as $ak1 => $av1 ) {
 							if ( $ak1 == 'id' ) {
 								$bpmnValues['_BPMNID'] = (string)$av1;
-							}
-							if ( $ak1 == 'name' ) {
+							} elseif ( $ak1 == 'name' ) {
 								$bpmnValues['_name'] = (string)$av1;
+							} elseif ( $k2 == 'sequenceFlow' && $ak1 == 'targetRef' ) {
+								$bpmnValues['_connectsTo'][] = (string)$av1;
 							}
 						}
 						foreach ( $v2->children( 'bpmn', true ) as $k3 => $v3 ) {
@@ -128,7 +125,7 @@ class CargoBPMNData {
 
 		foreach ( $allBPMNValues as $bpmnValues ) {
 			$bpmnValues['_connectsTo'] = implode( '|', $bpmnValues['_connectsTo'] );
-			CargoStore::storeAllData( $title, '_bpmnData', $bpmnValues, $tableSchemas['_bpmnData'] );
+			CargoStore::storeAllData( $title, $tableName, $bpmnValues, $tableSchemas[$tableName] );
 		}
 	}
 

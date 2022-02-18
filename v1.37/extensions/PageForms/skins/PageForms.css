@@ -24,22 +24,6 @@ textarea.mandatoryField {
 	position: relative;
 }
 
-/* Used in 'create form' page */
-.templateForm {
-	border: 1px black solid;
-	background: #dddddd;
-	padding: 0 20px 10px 20px;
-	margin-bottom: 20px;
-}
-
-/* Used in 'create form' page */
-.sectionForm {
-	border: 1px black solid;
-	background: #d0dae6;
-	padding: 0 20px 10px 20px;
-	margin-bottom: 20px;
-}
-
 /* Used in form pages */
 table.formtable {
 }
@@ -349,6 +333,14 @@ input.pfComboBoxActual {
 	color: #777;
 	background-color: #f7f7f7 !important;
 	border: 1px solid #ddd !important;
+}
+
+/**
+ * The box-sizing in the DateTimeInputWidget is incorrectly set to
+ * "border-box" for MW versions before 1.38, which leads to too-narrow inputs.
+ */
+.mw-widgets-datetime-dateTimeInputWidget-field {
+	box-sizing: content-box !important;
 }
 
 /* The standard MediaWiki editOptions class lacks a top border. */

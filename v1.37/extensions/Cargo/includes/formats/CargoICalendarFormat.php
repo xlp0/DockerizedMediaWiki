@@ -75,9 +75,24 @@ class CargoICalendarFormat extends CargoDeferredFormat {
 			$desc ? $this->text( 'DESCRIPTION', $desc ) : []
 		) ) );
 		foreach ( $sqlQueries as $sqlQuery ) {
+			list( $startDateField, $endDateField ) = $sqlQuery->getMainStartAndEndDateFields();
+			// @todo - get rid of this "if" check; right now it's only needed
+			// to pass validation, for some strange reason.
+			if ( $startDateField == null ) {
+				$startDateField = 'start';
+			}
 			$queryResults = $sqlQuery->run();
+			$nameField = '_pageName';
+			if ( !array_key_exists( '_pageName', $queryResults[0] ) ) {
+				foreach ( array_keys( $queryResults[0] ) as $resField ) {
+					if ( ( $resField !== $startDateField ) && ( $resField !== $endDateField ) ) {
+						$nameField = $resField;
+						break;
+					}
+				}
+			}
 			foreach ( $queryResults as $result ) {
-				$eventLines = $this->getEvent( $result );
+				$eventLines = $this->getEvent( $result, $startDateField, $endDateField, $nameField );
 				$calLines = array_merge( $calLines, $eventLines );
 			}
 		}
@@ -90,8 +105,8 @@ class CargoICalendarFormat extends CargoDeferredFormat {
 	 * @param string[] $result
 	 * @return string[]
 	 */
-	public function getEvent( $result ) {
-		$title = Title::newFromText( $result['_pageName'] );
+	public function getEvent( $result, $startDateField, $endDateField, $nameField ) {
+		$title = Title::newFromText( $result[$nameField] );
 		// Only re-query the Page if its ID or modification date are not included in the original query.
 		if ( !isset( $result['_pageID'] ) || !isset( $result['_modificationDate'] ) ) {
 			$page = WikiPage::factory( $title );
@@ -101,13 +116,19 @@ class CargoICalendarFormat extends CargoDeferredFormat {
 		$uid = $permalink->getCanonicalURL();
 		// Page values are stored in the wiki's timezone.
 		$wikiTimezone = MediaWikiServices::getInstance()->getMainConfig()->get( 'Localtimezone' );
-		$startDateTime = new DateTime( $result['start'], new DateTimeZone( $wikiTimezone ) );
-		$start = wfTimestamp( TS_ISO_8601_BASIC, $startDateTime->getTimestamp() );
-		$end = false;
-		if ( isset( $result['end'] ) && $result['end'] ) {
-			$endDateTime = new DateTime( $result['end'], new DateTimeZone( $wikiTimezone ) );
-			$end = wfTimestamp( TS_ISO_8601_BASIC, $endDateTime->getTimestamp() );
+		if ( isset( $result[$startDateField] ) ) {
+			$startDateTime = new DateTime( $result[$startDateField], new DateTimeZone( $wikiTimezone ) );
+			$start = wfTimestamp( TS_ISO_8601_BASIC, $startDateTime->getTimestamp() );
+		} else {
+			$start = false;
 		}
+		if ( $endDateField !== null && isset( $result[$endDateField] ) ) {
+			$endDateTime = new DateTime( $result[$endDateField], new DateTimeZone( $wikiTimezone ) );
+			$end = wfTimestamp( TS_ISO_8601_BASIC, $endDateTime->getTimestamp() );
+		} else {
+			$end = false;
+		}
+
 		// Modification date is stored in UTC.
 		$dtstamp = isset( $result['_modificationDate'] )
 			? wfTimestamp( TS_ISO_8601_BASIC, $result['_modificationDate'] )
@@ -133,7 +154,7 @@ class CargoICalendarFormat extends CargoDeferredFormat {
 				$end ? 'DTEND:' . $end : '',
 			],
 			$desc ? $this->text( 'DESCRIPTION', $desc ) : [],
-			$location ? $this->text( 'LOCATION:', $location ) : [],
+			$location ? $this->text( 'LOCATION', $location ) : [],
 			[
 				'END:VEVENT',
 			]

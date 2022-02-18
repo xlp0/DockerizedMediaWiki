@@ -1,16 +1,19 @@
 {
 	"name": "Cargo",
 	"namemsg": "cargo-extensionname",
-	"version": "2.8",
+	"version": "3.1",
 	"author": "Yaron Koren",
 	"url": "https://www.mediawiki.org/wiki/Extension:Cargo",
 	"descriptionmsg": "cargo-desc",
 	"license-name": "GPL-2.0-or-later",
 	"type": "parserhook",
 	"requires": {
-		"MediaWiki": ">= 1.30"
+		"MediaWiki": ">= 1.32"
 	},
 	"callback": "CargoHooks::registerExtension",
+	"ExtensionFunctions": [
+		"CargoHooks::initialize"
+	],
 	"AvailableRights": [
 		"recreatecargodata",
 		"deletecargodata",
@@ -30,6 +33,7 @@
 		"CargoTableDiagram": "CargoTableDiagram",
 		"DeleteCargoTable": "SpecialDeleteCargoTable",
 		"SwitchCargoTable": "SpecialSwitchCargoTable",
+		"RecreateCargoData": "SpecialCargoRecreateData",
 		"CargoQuery": "SpecialCargoQuery",
 		"CargoExport": "CargoExport",
 		"PageValues": "CargoPageValues",
@@ -42,6 +46,7 @@
 		"cargoquery": "CargoQueryAPI",
 		"cargorecreatetables": "CargoRecreateTablesAPI",
 		"cargorecreatedata": "CargoRecreateDataAPI",
+		"cargorecreatespecialtable": "CargoRecreateSpecialTableAPI",
 		"cargoautocomplete": "CargoAutocompleteAPI",
 		"cargoqueryautocomplete": "CargoQueryAutocompleteAPI",
 		"cargoformatparams": "CargoFormatParamsAPI"
@@ -74,6 +79,7 @@
 	"AutoloadClasses": {
 		"CargoHooks": "CargoHooks.php",
 		"CargoUtils": "includes/CargoUtils.php",
+		"CargoBackLinks": "includes/CargoBackLinks.php",
 		"CargoFieldDescription": "includes/CargoFieldDescription.php",
 		"CargoTableSchema": "includes/CargoTableSchema.php",
 		"CargoHierarchyTree": "includes/CargoHierarchyTree.php",
@@ -88,6 +94,7 @@
 		"CargoFileData": "includes/CargoFileData.php",
 		"CargoBPMNData": "includes/CargoBPMNData.php",
 		"CargoGanttData": "includes/CargoGanttData.php",
+		"CargoBPMNFormat": "includes/formats/CargoBPMNFormat.php",
 		"CargoRecurringEvent": "includes/parserfunctions/CargoRecurringEvent.php",
 		"CargoDisplayMap": "includes/parserfunctions/CargoDisplayMap.php",
 		"CargoPopulateTableJob": "includes/CargoPopulateTableJob.php",
@@ -105,6 +112,7 @@
 		"CargoQueryAPI": "includes/api/CargoQueryAPI.php",
 		"CargoRecreateTablesAPI": "includes/api/CargoRecreateTablesAPI.php",
 		"CargoRecreateDataAPI": "includes/api/CargoRecreateDataAPI.php",
+		"CargoRecreateSpecialTableAPI": "includes/api/CargoRecreateSpecialTableAPI.php",
 		"CargoAutocompleteAPI": "includes/api/CargoAutocompleteAPI.php",
 		"CargoQueryAutocompleteAPI": "includes/api/CargoQueryAutocompleteAPI.php",
 		"CargoFormatParamsAPI": "includes/api/CargoFormatParamsAPI.php",
@@ -123,6 +131,7 @@
 		"CargoTreeFormatTree": "includes/formats/CargoTreeFormatTree.php",
 		"CargoEmbeddedFormat": "includes/formats/CargoEmbeddedFormat.php",
 		"CargoCSVFormat": "includes/formats/CargoCSVFormat.php",
+		"CargoZipFormat": "includes/formats/CargoZipFormat.php",
 		"CargoExcelFormat": "includes/formats/CargoExcelFormat.php",
 		"CargoJSONFormat": "includes/formats/CargoJSONFormat.php",
 		"CargoTableFormat": "includes/formats/CargoTableFormat.php",
@@ -134,6 +143,7 @@
 		"CargoCalendarFormat": "includes/formats/CargoCalendarFormat.php",
 		"CargoICalendarFormat": "includes/formats/CargoICalendarFormat.php",
 		"CargoTimelineFormat": "includes/formats/CargoTimelineFormat.php",
+		"CargoGanttFormat": "includes/formats/CargoGanttFormat.php",
 		"CargoCategoryFormat": "includes/formats/CargoCategoryFormat.php",
 		"CargoBarChartFormat": "includes/formats/CargoBarChartFormat.php",
 		"CargoPieChartFormat": "includes/formats/CargoPieChartFormat.php",
@@ -162,7 +172,15 @@
 			]
 		},
 		"ext.cargo.pagevalues": {
-			"styles": "resources/CargoPageValues.css"
+			"scripts": "libs/CargoPageValues.js",
+			"styles": "resources/CargoPageValues.css",
+			"dependencies": [
+				"oojs-ui-widgets"
+			],
+			"messages": [
+				"cargo-field-type",
+				"cargo-allowed-values"
+			]
 		},
 		"ext.cargo.cargotables": {
 			"styles": "resources/CargoTables.css"
@@ -185,7 +203,9 @@
 				"cargo-recreatedata-replacementcreated",
 				"cargo-recreatedata-success",
 				"cargo-cargotables-viewtablelink",
-				"cargo-cargotables-viewreplacementlink"
+				"cargo-cargotables-viewreplacementlink",
+				"cargo-recreatedata-job-creation-failed",
+				"cargo-recreatedata-table-creation-failed"
 			]
 		},
 		"ext.cargo.maps": {
@@ -204,8 +224,71 @@
 				"libs/FullCalendar/locale-all.js",
 				"libs/ext.cargo.calendar.js"
 			],
+			"messages": [
+				"cargo-calendar-datepicker-label"
+			],
 			"dependencies": [
-				"moment"
+				"moment",
+				"mediawiki.widgets.DateInputWidget",
+				"mediawiki.jqueryMsg"
+			]
+		},
+		"ext.cargo.gantt": {
+			"styles": [
+				"libs/dhtmlxgantt/dhtmlxgantt.css",
+				"libs/ext.cargo.gantt.css"
+			],
+			"scripts": [
+				"libs/dhtmlxgantt/dhtmlxgantt.js",
+				"libs/ext.cargo.gantt.js"
+			],
+			"dependencies": [
+				"oojs-ui-widgets"
+			],
+			"messages": [
+				"cargo-gantt-zoomlevel",
+				"cargo-gantt-hours",
+				"cargo-gantt-days",
+				"cargo-gantt-months",
+				"cargo-gantt-years"
+			]
+		},
+		"ext.cargo.zip": {
+			"styles": [
+				"libs/ext.cargo.zip.css"
+			],
+			"scripts": [
+				"libs/ext.cargo.zip.js",
+				"libs/jszip/jszip.js",
+				"libs/jszip/jszip-utils.js",
+				"libs/jszip/FileSaver.js"
+			]
+		},
+		"ext.cargo.bpmn": {
+			"scripts": [
+				"libs/bpmn-js/bpmn-navigated-viewer.development.js",
+				"libs/ext.cargo.bpmn.js"
+			],
+			"styles": [
+				"libs/ext.cargo.bpmn.css"
+			],
+			"dependencies": [
+				"bpmn-auto-layout"
+			]
+		},
+		"bpmn-auto-layout": {
+			"localBasePath": "libs/bpmn-auto-layout",
+			"remoteExtPath": "Cargo/libs/bpmn-auto-layout",
+			"packageFiles": [
+				"AutoLayout.js",
+				"DiFactory.js",
+				"DiUtil.js",
+				"Tree.js",
+				"bpmn-moddle.js",
+				"min-dash.js",
+				"moddle.js",
+				"moddle-xml.js",
+				"saxen.js"
 			]
 		},
 		"ext.cargo.timelinebase": {
@@ -294,7 +377,7 @@
 				"drilldown/resources/CargoDrilldown.js"
 			],
 			"messages": [
-				"searchresultshead",
+				"cargo-drilldown-search",
 				"cargo-drilldown-othervalues"
 			],
 			"dependencies": [
@@ -317,7 +400,7 @@
 		"ApprovedRevsRevisionApproved": "CargoHooks::onARRevisionApproved",
 		"ApprovedRevsRevisionUnapproved": "CargoHooks::onARRevisionUnapproved",
 		"TitleMoveComplete": "CargoHooks::onTitleMoveComplete",
-		"ArticleDeleteComplete": "CargoHooks::onArticleDeleteComplete",
+		"MultiContentSave": "CargoHooks::onMultiContentSave",
 		"UploadComplete": "CargoHooks::onUploadComplete",
 		"CategoryAfterPageAdded": "CargoHooks::addCategoryToPageData",
 		"CategoryAfterPageRemoved": "CargoHooks::removeCategoryFromPageData",

@@ -1,4 +1,7 @@
 <?php
+
+use MediaWiki\MediaWikiServices;
+
 /**
  * Static functions for Page Forms, for use by the Page Schemas
  * extension.
@@ -20,14 +23,14 @@ class PFPageSchemas extends PSExtensionHandler {
 	 * Creates an object to hold form-wide information, based on an XML
 	 * object from the Page Schemas extension.
 	 * @param string $tagName
-	 * @param string $xml
+	 * @param SimpleXMLElement $xml
 	 * @return string[]|null
 	 */
 	public static function createPageSchemasObject( $tagName, $xml ) {
 		$pfarray = [];
 
 		if ( $tagName == "standardInputs" ) {
-			foreach ( $xml->children() as $tag => $child ) {
+			foreach ( $xml->children() as $_ => $child ) {
 				foreach ( $child->children() as $tag => $formelem ) {
 					if ( $tag == $tagName ) {
 						foreach ( $formelem->attributes() as $attr => $name ) {
@@ -44,8 +47,8 @@ class PFPageSchemas extends PSExtensionHandler {
 				if ( $tag == $tagName ) {
 					$formName = (string)$child->attributes()->name;
 					$pfarray['name'] = $formName;
-					foreach ( $child->children() as $tag => $formelem ) {
-						$pfarray[$tag] = (string)$formelem;
+					foreach ( $child->children() as $childTag => $formelem ) {
+						$pfarray[$childTag] = (string)$formelem;
 					}
 					return $pfarray;
 				}
@@ -54,8 +57,8 @@ class PFPageSchemas extends PSExtensionHandler {
 		if ( $tagName == "pageforms_TemplateDetails" ) {
 			foreach ( $xml->children() as $tag => $child ) {
 				if ( $tag == $tagName ) {
-					foreach ( $child->children() as $tag => $formelem ) {
-						$pfarray[$tag] = (string)$formelem;
+					foreach ( $child->children() as $childTag => $formelem ) {
+						$pfarray[$childTag] = (string)$formelem;
 					}
 					return $pfarray;
 				}
@@ -142,15 +145,16 @@ class PFPageSchemas extends PSExtensionHandler {
 
 		$xmlPerTemplate = [];
 		$templateNum = -1;
+		$xml = '';
 		foreach ( $wgRequest->getValues() as $var => $val ) {
 			$val = str_replace( [ '<', '>' ], [ '&lt;', '&gt;' ], $val );
-			if ( substr( $var, 0, 18 ) == 'pf_template_label_' ) {
+			if ( substr( $var, 0, 18 ) === 'pf_template_label_' ) {
 				$templateNum = substr( $var, 18 );
 				$xml = '<pageforms_TemplateDetails>';
 				if ( !empty( $val ) ) {
 					$xml .= "<Label>$val</Label>";
 				}
-			} elseif ( substr( $var, 0, 23 ) == 'pf_template_addanother_' ) {
+			} elseif ( substr( $var, 0, 23 ) === 'pf_template_addanother_' ) {
 				if ( !empty( $val ) ) {
 					$xml .= "<AddAnotherText>$val</AddAnotherText>";
 				}
@@ -170,29 +174,30 @@ class PFPageSchemas extends PSExtensionHandler {
 
 		$xmlPerField = [];
 		$fieldNum = -1;
+		$xml = '';
 		foreach ( $wgRequest->getValues() as $var => $val ) {
 			$val = str_replace( [ '<', '>' ], [ '&lt;', '&gt;' ], $val );
-			if ( substr( $var, 0, 14 ) == 'pf_input_type_' ) {
+			if ( substr( $var, 0, 14 ) === 'pf_input_type_' ) {
 				$fieldNum = substr( $var, 14 );
 				$xml = '<pageforms_FormInput>';
 				if ( !empty( $val ) ) {
 					$xml .= '<InputType>' . $val . '</InputType>';
 				}
-			} elseif ( substr( $var, 0, 14 ) == 'pf_key_values_' ) {
+			} elseif ( substr( $var, 0, 14 ) === 'pf_key_values_' ) {
 				$xml .= self::createFormInputXMLFromForm( $val );
-			} elseif ( substr( $var, 0, 14 ) == 'pf_input_befo_' ) {
+			} elseif ( substr( $var, 0, 14 ) === 'pf_input_befo_' ) {
 				if ( $val !== '' ) {
 					$xml .= '<TextBeforeField>' . $val . '</TextBeforeField>';
 				}
-			} elseif ( substr( $var, 0, 14 ) == 'pf_input_desc_' ) {
+			} elseif ( substr( $var, 0, 14 ) === 'pf_input_desc_' ) {
 				if ( $val !== '' ) {
 					$xml .= '<Description>' . $val . '</Description>';
 				}
-			} elseif ( substr( $var, 0, 18 ) == 'pf_input_desctool_' ) {
+			} elseif ( substr( $var, 0, 18 ) === 'pf_input_desctool_' ) {
 				if ( $val !== '' ) {
 					$xml .= '<DescriptionTooltipMode>' . $val . '</DescriptionTooltipMode>';
 				}
-			} elseif ( substr( $var, 0, 16 ) == 'pf_input_finish_' ) {
+			} elseif ( substr( $var, 0, 16 ) === 'pf_input_finish_' ) {
 				// This is a hack.
 				$xml .= '</pageforms_FormInput>';
 				$xmlPerField[$fieldNum] = $xml;
@@ -341,7 +346,7 @@ class PFPageSchemas extends PSExtensionHandler {
 	/**
 	 * Returns the HTML for inputs to define a single form field,
 	 * within the Page Schemas 'edit schema' page.
-	 * @param PFField $psField
+	 * @param PSTemplateField $psField
 	 * @return array
 	 */
 	public static function getFieldEditingHTML( $psField ) {
@@ -464,13 +469,13 @@ class PFPageSchemas extends PSExtensionHandler {
 				$pfarray = [];
 				$formName = (string)$child->attributes()->name;
 				$pfarray['name'] = $formName;
-				foreach ( $child->children() as $tag => $formelem ) {
-					if ( $tag == "standardInputs" ) {
+				foreach ( $child->children() as $childTag => $formelem ) {
+					if ( $childTag == "standardInputs" ) {
 						foreach ( $formelem->attributes() as $attr => $value ) {
 							$pfarray[$attr] = (string)$formelem->attributes()->$attr;
 						}
 					} else {
-						$pfarray[$tag] = (string)$formelem;
+						$pfarray[$childTag] = (string)$formelem;
 					}
 				}
 				return $pfarray;
@@ -484,7 +489,7 @@ class PFPageSchemas extends PSExtensionHandler {
 		$fieldsInfo = $psTemplate->getFields();
 		foreach ( $fieldsInfo as $i => $psField ) {
 			$fieldFormArray = $psField->getObject( 'pageforms_FormInput' );
-			if ( $fieldFormArray == null ) {
+			if ( $fieldFormArray === null ) {
 				continue;
 			}
 			$formField = PFFormField::create( $template_fields[$i] );
@@ -605,15 +610,13 @@ class PFPageSchemas extends PSExtensionHandler {
 	 * Creates a form page, when called from the 'generatepages' page
 	 * of Page Schemas.
 	 * @param string $formName
-	 * @param string $formTitle
+	 * @param Title $formTitle
 	 * @param array $formItems
 	 * @param array $formDataFromSchema
 	 * @param string $categoryName
 	 */
 	public static function generateForm( $formName, $formTitle,
 		$formItems, $formDataFromSchema, $categoryName ) {
-		global $wgUser;
-
 		$includeFreeText = array_key_exists( 'inputFreeText', $formDataFromSchema );
 		$freeTextLabel = null;
 		if ( $includeFreeText && array_key_exists( 'freeTextLabel', $formDataFromSchema ) ) {
@@ -631,14 +634,22 @@ class PFPageSchemas extends PSExtensionHandler {
 		if ( array_key_exists( 'EditTitle', $formDataFromSchema ) ) {
 			$form->setEditTitle( $formDataFromSchema['EditTitle'] );
 		}
+
+		$user = RequestContext::getMain()->getUser();
+
 		$formContents = $form->createMarkup( $includeFreeText, $freeTextLabel );
 		$params = [];
-		$params['user_id'] = $wgUser->getId();
+		$params['user_id'] = $user->getId();
 		$params['page_text'] = $formContents;
 		$job = new PSCreatePageJob( $formTitle, $params );
 
 		$jobs = [ $job ];
-		JobQueueGroup::singleton()->push( $jobs );
+		if ( method_exists( MediaWikiServices::class, 'getJobQueueGroup' ) ) {
+			// MW 1.37+
+			MediaWikiServices::getInstance()->getJobQueueGroup()->push( $jobs );
+		} else {
+			JobQueueGroup::singleton()->push( $jobs );
+		}
 	}
 
 	/**
@@ -647,11 +658,11 @@ class PFPageSchemas extends PSExtensionHandler {
 	 * @param array $selectedPages
 	 */
 	public static function generatePages( $pageSchemaObj, $selectedPages ) {
-		global $wgUser;
-
 		if ( $selectedPages == null ) {
 			return;
 		}
+
+		$user = RequestContext::getMain()->getUser();
 
 		$psFormItems = $pageSchemaObj->getFormItemsList();
 		$form_items = [];
@@ -720,7 +731,7 @@ class PFPageSchemas extends PSExtensionHandler {
 
 				if ( in_array( $fullTemplateName, $selectedPages ) ) {
 					$params = [];
-					$params['user_id'] = $wgUser->getId();
+					$params['user_id'] = $user->getId();
 					$params['page_text'] = $templateText;
 					$jobs[] = new PSCreatePageJob( $templateTitle, $params );
 					if ( strpos( $templateText, '{{!}}' ) > 0 ) {
@@ -761,13 +772,18 @@ class PFPageSchemas extends PSExtensionHandler {
 			$templateTitle = Title::makeTitleSafe( NS_TEMPLATE, '!' );
 			if ( !$templateTitle->exists() ) {
 				$params = [];
-				$params['user_id'] = $wgUser->getId();
+				$params['user_id'] = $user->getId();
 				$params['page_text'] = '|';
 				$jobs[] = new PSCreatePageJob( $templateTitle, $params );
 			}
 		}
 
-		JobQueueGroup::singleton()->push( $jobs );
+		if ( method_exists( MediaWikiServices::class, 'getJobQueueGroup' ) ) {
+			// MW 1.37+
+			MediaWikiServices::getInstance()->getJobQueueGroup()->push( $jobs );
+		} else {
+			JobQueueGroup::singleton()->push( $jobs );
+		}
 
 		// Create form, if it's specified.
 		$formName = self::getFormName( $pageSchemaObj );

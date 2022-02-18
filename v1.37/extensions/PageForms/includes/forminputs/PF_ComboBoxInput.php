@@ -10,7 +10,8 @@ use MediaWiki\MediaWikiServices;
  * @ingroup PFFormInput
  */
 class PFComboBoxInput extends PFFormInput {
-	public static function getName() {
+
+	public static function getName(): string {
 		return 'combobox';
 	}
 
@@ -98,7 +99,7 @@ class PFComboBoxInput extends PFFormInput {
 			'tabindex' => $wgPageFormsTabIndex,
 			'autocompletesettings' => $autocompleteSettings,
 			'value' => $cur_value,
-			'data-size' => $size * 6 . 'px',
+			'data-size' => $size * 6,
 			'style' => 'width:' . $size * 6 . 'px',
 			'disabled' => $is_disabled
 		];
@@ -121,7 +122,8 @@ class PFComboBoxInput extends PFFormInput {
 		if ( !$is_mandatory || $cur_value === '' ) {
 			$innerDropdown .= "	<option value=\"\"></option>\n";
 		}
-		if ( ( $possible_values = $other_args['possible_values'] ) == null ) {
+		$possible_values = $other_args['possible_values'];
+		if ( $possible_values == null ) {
 			// If it's a Boolean property, display 'Yes' and 'No'
 			// as the values.
 			if ( array_key_exists( 'property_type', $other_args ) && $other_args['property_type'] == '_boo' ) {
@@ -150,7 +152,7 @@ class PFComboBoxInput extends PFFormInput {
 			}
 			$innerDropdown .= Html::element( 'option', $optionAttrs, $label );
 		}
-		if ( $isValueInPossibleValues === false ) {
+		if ( !$isValueInPossibleValues ) {
 			$optionAttrs = [ 'value' => $cur_value ];
 			$optionAttrs['selected'] = "selected";
 			$label = $cur_value;
@@ -174,7 +176,7 @@ class PFComboBoxInput extends PFFormInput {
 			$spanClass .= ' mandatoryFieldSpan';
 		}
 
-		$text = Html::rawElement( 'span', [ 'class' => $spanClass ], $inputText );
+		$text = Html::rawElement( 'span', [ 'class' => $spanClass, 'data-input-type' => 'combobox' ], $inputText );
 		return $text;
 	}
 
@@ -208,7 +210,7 @@ class PFComboBoxInput extends PFFormInput {
 	 * Returns the HTML code to be included in the output page for this input.
 	 * @return string
 	 */
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		return self::getHTML(
 			$this->mCurrentValue,
 			$this->mInputName,
@@ -216,5 +218,9 @@ class PFComboBoxInput extends PFFormInput {
 			$this->mIsDisabled,
 			$this->mOtherArgs
 		);
+	}
+
+	public function getResourceModuleNames() {
+		return [ 'ext.pageforms.ooui.combobox' ];
 	}
 }

@@ -9,6 +9,8 @@
  * @ingroup PF
  */
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * @ingroup PFSpecialPages
  */
@@ -29,7 +31,6 @@ class PFCreateClass extends SpecialPage {
 		// Check permissions.
 		if ( !$this->getUser()->isAllowed( 'createclass' ) ) {
 			$this->displayRestrictionError();
-			return;
 		}
 		$this->printCreateClassForm( $query );
 	}
@@ -66,7 +67,7 @@ class PFCreateClass extends SpecialPage {
 			// local variables.
 			$field_name = trim( $req->getVal( "name_$i" ) );
 			$display_label = trim( $req->getVal( "label_$i" ) );
-			$display_label = $display_label ? $display_label : $field_name;
+			$display_label = $display_label ?: $field_name;
 			$property_name = trim( $req->getVal( "property_name_$i" ) );
 			$property_type = $req->getVal( "field_type_$i" );
 			$allowed_values = $req->getVal( "allowed_values_$i" );
@@ -192,13 +193,18 @@ class PFCreateClass extends SpecialPage {
 			$jobs[] = new PFCreatePageJob( $category_title, $params );
 		}
 
-		JobQueueGroup::singleton()->push( $jobs );
+		if ( method_exists( MediaWikiServices::class, 'getJobQueueGroup' ) ) {
+			// MW 1.37+
+			MediaWikiServices::getInstance()->getJobQueueGroup()->push( $jobs );
+		} else {
+			JobQueueGroup::singleton()->push( $jobs );
+		}
 
 		$out->addWikiMsg( 'pf_createclass_success' );
 	}
 
 	private function printCreateClassForm( $query ) {
-		global $wgLang;
+		$lang = $this->getLanguage();
 		$out = $this->getOutput();
 		$req = $this->getRequest();
 
@@ -240,7 +246,7 @@ class PFCreateClass extends SpecialPage {
 		$text = '<form id="createClassForm" action="" method="post">' . "\n";
 		$text .= "\t" . Html::rawElement( 'p', null,
 				$this->msg( 'pf_createclass_docu' )
-					->rawParams( $wgLang->listToText( $creation_links ) )
+					->rawParams( $lang->listToText( $creation_links ) )
 					->escaped() ) . "\n";
 		$templateNameLabel = $this->msg( 'pf_createtemplate_namelabel' )->escaped();
 		$templateNameInput = Html::input( 'template_name', null, 'text', [ 'size' => 30 ] );
@@ -248,9 +254,9 @@ class PFCreateClass extends SpecialPage {
 
 		$templateInfo = '';
 		if ( defined( 'CARGO_VERSION' ) && !defined( 'SMW_VERSION' ) ) {
-			$templateInfo .= "\t<p><label>" .
-				Html::check( 'use_cargo', true, [ 'id' => 'use_cargo' ] ) .
-				' ' . $this->msg( 'pf_createtemplate_usecargo' )->escaped() .
+			$templateInfo .= "\t<p><label id='cargo_toggle'>" .
+				Html::hidden( 'use_cargo', true ) .
+				$this->msg( 'pf_createtemplate_usecargo' )->escaped() .
 				"</label></p>\n";
 			$cargo_table_label = $this->msg( 'pf_createtemplate_cargotablelabel' )->escaped();
 			$templateInfo .= "\t" . Html::rawElement( 'p', [ 'id' => 'cargo_table_input' ],
@@ -260,13 +266,8 @@ class PFCreateClass extends SpecialPage {
 		}
 		$createTemplatePage = new PFCreateTemplate();
 		$templateInfo .= $createTemplatePage->printTemplateStyleInput( 'template_format' );
-		$templateInfo .= Html::rawElement( 'p', null,
-			Html::element( 'input', [
-				'type' => 'checkbox',
-				'name' => 'template_multiple',
-				'id' => 'template_multiple',
-				'class' => "disableFormAndCategoryInputs",
-			] ) . ' ' . $this->msg( 'pf_createtemplate_multipleinstance' )->escaped() ) . "\n";
+		$templateInfo .= Html::rawElement( 'p', [ 'id' => 'template_multiple_p' ],
+			Html::hidden( 'multiple_template', false ) . $this->msg( 'pf_createtemplate_multipleinstance' )->escaped() ) . "\n";
 		// Either #set_internal or #subobject will be added to the
 		// template, depending on whether Semantic Internal Objects is
 		// installed.
@@ -317,7 +318,7 @@ class PFCreateClass extends SpecialPage {
 			$text .= "\t" . Html::element( 'legend', null, $this->msg( 'pf_createtemplate_aggregation' )->text() ) . "\n";
 			$text .= "\t" . Html::element( 'p', null, $this->msg( 'pf_createtemplate_aggregationdesc' )->text() ) . "\n";
 			$text .= "\t<p>" . $this->msg( 'pf_createtemplate_semanticproperty' )->escaped() . ' ' .
-				$this->printPropertiesComboBox( $all_properties, "aggregation" ) . "</p>\n";
+				PFCreateTemplate::printPropertiesComboBox( $all_properties, "aggregation" ) . "</p>\n";
 			$text .= "\t<p>" . $this->msg( 'pf_createtemplate_aggregationlabel' )->escaped() . ' ' .
 				Html::input( 'aggregation_label', null, 'text',
 					[ 'size' => '25' ] ) .

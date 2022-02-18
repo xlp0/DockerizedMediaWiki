@@ -31,7 +31,7 @@ class TemplateStylesMatcherFactory extends \Wikimedia\CSS\Grammar\MatcherFactory
 	 */
 	protected function checkUrl( $type, $url ) {
 		// Undo unnecessary percent encoding
-		$url = preg_replace_callback( '/%[2-7][0-9A-Fa-f]/', function ( $m ) {
+		$url = preg_replace_callback( '/%[2-7][0-9A-Fa-f]/', static function ( $m ) {
 			$char = urldecode( $m[0] );
 			/** @phan-suppress-next-line PhanParamSuspiciousOrder */
 			if ( strpos( '"#%<>[\]^`{|}/?&=+;', $char ) === false ) {
@@ -47,7 +47,7 @@ class TemplateStylesMatcherFactory extends \Wikimedia\CSS\Grammar\MatcherFactory
 			return false;
 		}
 
-		// Run it through the whitelist
+		// Check if it is allowed
 		$regexes = $this->allowedDomains[$type] ?? [];
 		foreach ( $regexes as $regex ) {
 			if ( preg_match( $regex, $url ) ) {
@@ -58,6 +58,9 @@ class TemplateStylesMatcherFactory extends \Wikimedia\CSS\Grammar\MatcherFactory
 		return false;
 	}
 
+	/**
+	 * @inheritDoc
+	 */
 	public function urlstring( $type ) {
 		$key = __METHOD__ . ':' . $type;
 		if ( !isset( $this->cache[$key] ) ) {
@@ -68,6 +71,9 @@ class TemplateStylesMatcherFactory extends \Wikimedia\CSS\Grammar\MatcherFactory
 		return $this->cache[$key];
 	}
 
+	/**
+	 * @inheritDoc
+	 */
 	public function url( $type ) {
 		$key = __METHOD__ . ':' . $type;
 		if ( !isset( $this->cache[$key] ) ) {

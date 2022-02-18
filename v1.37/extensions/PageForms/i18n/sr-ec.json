@@ -51,7 +51,7 @@
 	"pf_createform_inputtype": "Врста уноса:",
 	"pf_createform_inputtypedefault": "(подразумевано)",
 	"pf_createform_formlabel": "Из ознаке:",
-	"pf_createform_hidden": "Сакривено",
+	"pf_createform_hidden": "(Сакривено)",
 	"pf_createform_removetemplate": "Уклони шаблон",
 	"pf_createform_addtemplate": "Додај шаблон:",
 	"pf_createform_atend": "На крају",
@@ -88,7 +88,7 @@
 	"action-editrestrictedfields": "уређујете ограничења из поља",
 	"action-viewedittab": "прегледате картицу „{{int:edit}}” за странице које су уредиве путем обрасца",
 	"action-multipageedit": "уређујете више страница користећи унакрсну табелу",
-	"pf-select2-selection-too-big": "Ово поље не може да садржи више од {{PLURAL:$1|$1 вредности}}.",
+	"pf-autocomplete-selection-too-big": "Ово поље не може да садржи више од {{PLURAL:$1|$1 вредности}}.",
 	"pf-datepicker-dateformatlong": "d MM yy",
 	"pf-datepicker-dateformatshort": "dd.mm.yy",
 	"pf-datepicker-firstdayofweek": "1"

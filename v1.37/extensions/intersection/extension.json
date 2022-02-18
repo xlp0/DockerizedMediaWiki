@@ -9,7 +9,7 @@
 	"descriptionmsg": "intersection-desc",
 	"type": "parserhook",
 	"requires": {
-		"MediaWiki": ">= 1.32.0"
+		"MediaWiki": ">= 1.37.0"
 	},
 	"license-name": "GPL-2.0-or-later",
 	"AutoloadClasses": {
@@ -23,6 +23,9 @@
 	"Hooks": {
 		"ParserFirstCallInit": "DynamicPageListHooks::onParserFirstCallInit"
 	},
+	"TrackingCategories": [
+		"intersection-category"
+	],
 	"config": {
 		"DLPmaxCategories": {
 			"value": 6
@@ -38,6 +41,10 @@
 		},
 		"DLPMaxCacheTime": {
 			"value": 86400
+		},
+		"DLPQueryCacheTime": {
+			"value": 0,
+			"description": "This is the query cache. It can help with situations where you have a template with the same query used on a large number of pages all being refreshed at once. The query cache cannot be purged. Suggested value between 30 to 600."
 		}
 	},
 	"manifest_version": 2

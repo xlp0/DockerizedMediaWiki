@@ -5,7 +5,8 @@
 			"Emilbk",
 			"Fredrilj",
 			"Jon Harald Søby",
-			"Kingu"
+			"Kingu",
+			"Vukky"
 		]
 	},
 	"cargo-desc": "Lagring og spørring av data i maler",
@@ -16,6 +17,7 @@
 	"cargo-notable": "Feil: Tabellnavnet må angis.",
 	"cargo-unknowntable": "Feil: Tabell $1 ikke funnet.",
 	"recreatedata": "Gjenoppbygg data",
+	"recreatecargodata": "Gjenopprett data",
 	"action-recreatecargodata": "gjenoppbygg Cargo-data",
 	"right-recreatecargodata": "Gjenoppbygg data som finnes i Cargo-tabeller",
 	"action-deletecargodata": "slette Cargo-data",
@@ -125,6 +127,7 @@
 	"cargo-drilldown-hierarchy-within": "innen $1",
 	"cargo-drilldown-hierarchy-only": "kun «$1»",
 	"cargo-drilldown-addanothervalue": "Klikk på pilen for å legge til flere verdier",
+	"cargo-drilldown-search": "Søk",
 	"cargo-drilldown-othervalues": "Andre verdier:",
 	"cargo-drilldown-novalues": "Det finnes ingen verdier for dette filteret",
 	"cargo-drilldown-fulltext": "Full tekst",
@@ -135,6 +138,7 @@
 	"cargo-drilldown-timelineformat": "Tidslinje",
 	"cargo-drilldown-galleryformat": "Galleri",
 	"cargo-drilldown-calendarformat": "Kalender",
+	"cargo-drilldown-gallerycaption": "[[$1]]",
 	"cargo-viewcsv": "Vis CSV",
 	"cargo-viewxls": "Vis XLS",
 	"cargo-viewjson": "Vis JSON",
@@ -146,5 +150,13 @@
 	"cargo-purgecache-failed": "Rensking av mellomlageret feilet",
 	"specialpages-group-cargo": "Cargo",
 	"cargo-pageschemas-cargofield": "Cargo-felt",
-	"cargo-pageschemas-tablename": "Tabellnavn:"
+	"cargo-pageschemas-tablename": "Tabellnavn:",
+	"cargo-gantt-zoomlevel": "Zoomnivå:",
+	"cargo-gantt-hours": "Timer",
+	"cargo-gantt-days": "Dager",
+	"cargo-gantt-months": "Måneder",
+	"cargo-gantt-years": "År",
+	"cargo-field-type": "Felttype:",
+	"cargo-allowed-values": "Tillatte verdier:",
+	"cargo-declare-validate-bad-character": "Feil: $1-navnet «$2» kan ikke inneholde følgende tegn: $3"
 }

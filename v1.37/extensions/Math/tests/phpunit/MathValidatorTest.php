@@ -2,36 +2,20 @@
 
 use DataValues\NumberValue;
 use DataValues\StringValue;
+use MediaWiki\Extension\Math\MathValidator;
 
 /**
- * @covers \MathValidator
+ * @covers \MediaWiki\Extension\Math\MathValidator
  *
  * @group Math
  *
  * @license GPL-2.0-or-later
  */
 class MathValidatorTest extends MediaWikiTestCase {
-	private const VADLID_TEX = "a^2+b^2=c^2";
+	use MockHttpTrait;
+
+	private const VADLID_TEX = "\sin x";
 	private const INVADLID_TEX = "\\notExists";
-
-	protected static $hasRestbase;
-
-	public static function setUpBeforeClass() : void {
-		$rbi = new MathRestbaseInterface();
-		self::$hasRestbase = $rbi->checkBackend( true );
-	}
-
-	/**
-	 * Sets up the fixture, for example, opens a network connection.
-	 * This method is called before a test is executed.
-	 */
-	protected function setUp() : void {
-		parent::setUp();
-
-		if ( !self::$hasRestbase ) {
-			$this->markTestSkipped( "Can not connect to Restbase Math interface." );
-		}
-	}
 
 	public function testNotStringValue() {
 		$validator = new MathValidator();
@@ -46,6 +30,8 @@ class MathValidatorTest extends MediaWikiTestCase {
 	}
 
 	public function testValidInput() {
+		$this->installMockHttp( $this->makeFakeHttpRequest( file_get_contents( __DIR__ .
+			'/InputCheck/data/mathoid/sinx.json' ) ) );
 		$validator = new MathValidator();
 		$result = $validator->validate( new StringValue( self::VADLID_TEX ) );
 		$this->assertInstanceOf( \ValueValidators\Result::class, $result );
@@ -53,6 +39,8 @@ class MathValidatorTest extends MediaWikiTestCase {
 	}
 
 	public function testInvalidInput() {
+		$this->installMockHttp( $this->makeFakeHttpRequest( file_get_contents( __DIR__ .
+			'/InputCheck/data/mathoid/invalidF.json' ), 400 ) );
 		$validator = new MathValidator();
 		$result = $validator->validate( new StringValue( self::INVADLID_TEX ) );
 		$this->assertInstanceOf( \ValueValidators\Result::class, $result );

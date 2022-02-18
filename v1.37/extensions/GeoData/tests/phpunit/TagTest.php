@@ -17,7 +17,7 @@ use Title;
  */
 class TagTest extends MediaWikiTestCase {
 
-	public function setUp() : void {
+	public function setUp(): void {
 		parent::setUp();
 		// reset to default
 		$this->setMwGlobals( 'wgDefaultDim', 1000 );
@@ -61,9 +61,7 @@ class TagTest extends MediaWikiTestCase {
 		$this->assertSame( $inExtData, CoordinatesOutput::getFromParserOutput( $output ) );
 
 		$output = new \ParserOutput();
-		CoordinatesOutput::getOrBuildFromParserOutput( $output );
-		$this->assertNotNull(
-			$output->getExtensionData( CoordinatesOutput::GEO_DATA_COORDS_OUTPUT ) );
+		$this->assertNotNull( CoordinatesOutput::getOrBuildFromParserOutput( $output ) );
 	}
 
 	/**

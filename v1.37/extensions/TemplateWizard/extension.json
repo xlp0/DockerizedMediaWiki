@@ -9,22 +9,32 @@
 	"license-name": "MIT",
 	"type": "other",
 	"requires": {
-		"MediaWiki": ">= 1.31.0",
+		"MediaWiki": ">= 1.35.0",
 		"extensions": {
 			"TemplateData": "*",
 			"WikiEditor": ">= 0.5.3"
+		}
+	},
+	"config": {
+		"TemplateWizardTemplateSearchImprovements": {
+			"description": "Temporary feature flag to enable various changes around searching for template names. (T271802)",
+			"value": false
 		}
 	},
 	"AutoloadNamespaces": {
 		"MediaWiki\\Extension\\TemplateWizard\\": "includes/"
 	},
 	"Hooks": {
-		"EditPage::showEditForm:initial": "MediaWiki\\Extension\\TemplateWizard\\Hooks::onEditPageShowEditFormInitial"
+		"EditPage::showEditForm:initial": "MediaWiki\\Extension\\TemplateWizard\\Hooks::onEditPageShowEditFormInitial",
+		"ResourceLoaderGetConfigVars": "MediaWiki\\Extension\\TemplateWizard\\Hooks::onResourceLoaderGetConfigVars"
+	},
+	"ConfigRegistry": {
+		"templatewizard": "GlobalVarConfig::newInstance"
 	},
 	"attributes": {
 		"EventLogging": {
 			"Schemas": {
-				"TemplateWizard": 19080110
+				"TemplateWizard": "/analytics/legacy/templatewizard/1.2.0"
 			}
 		}
 	},
@@ -39,6 +49,7 @@
 				"ext.TemplateWizard.js",
 				"ext.TemplateWizard.AddRemoveAllButton.js",
 				"ext.TemplateWizard.Dialog.js",
+				"ext.TemplateWizard.DismissibleMessageWidget.js",
 				"ext.TemplateWizard.Model.js",
 				"ext.TemplateWizard.Model/Parameters.js",
 				"ext.TemplateWizard.ParamButton.js",
@@ -55,6 +66,7 @@
 				"ext.TemplateWizard.less"
 			],
 			"messages": [
+				"redirectedfrom",
 				"templatewizard-add-all",
 				"templatewizard-cancel",
 				"templatewizard-close-dialog",
@@ -62,6 +74,7 @@
 				"templatewizard-close-dialog-retry",
 				"templatewizard-default",
 				"templatewizard-dialog-title",
+				"templatewizard-dismissible-message-close",
 				"templatewizard-help",
 				"templatewizard-help-title",
 				"templatewizard-insert",
@@ -84,6 +97,7 @@
 				"templatewizard-remove-template-body",
 				"templatewizard-remove-template-retry",
 				"templatewizard-search-placeholder",
+				"templatewizard-search-feedback-message",
 				"templatewizard-parambutton-add-title",
 				"templatewizard-parambutton-remove-title",
 				"templatewizard-parambutton-required-title",
@@ -113,7 +127,8 @@
 		"remoteExtPath": "TemplateWizard/tests/qunit",
 		"scripts": [
 			"ext.TemplateWizard.test.js",
-			"ext.TemplateWizard.Model.Parameters.test.js"
+			"ext.TemplateWizard.Model.Parameters.test.js",
+			"ext.TemplateWizard.SearchField.test.js"
 		],
 		"dependencies": [
 			"ext.TemplateWizard"

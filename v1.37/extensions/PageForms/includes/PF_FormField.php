@@ -5,6 +5,8 @@
  * @ingroup PF
  */
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * This class is distinct from PFTemplateField in that it represents a template
  * field defined in a form definition - it contains an PFTemplateField object
@@ -25,8 +27,10 @@ class PFFormField {
 	private $mPossibleValues;
 	private $mUseDisplayTitle;
 	private $mIsList;
-	// The following fields are not set by the form-creation page
-	// (though they could be).
+	/**
+	 * The following fields are not set by the form-creation page
+	 * (though they could be).
+	 */
 	private $mDefaultValue;
 	private $mPreloadPage;
 	private $mHoldsTemplate;
@@ -35,11 +39,13 @@ class PFFormField {
 	private $mDescriptionArgs;
 	private $mLabel;
 	private $mLabelMsg;
-	// somewhat of a hack - these two fields are for a field in a specific
-	// representation of a form, not the form definition; ideally these
-	// should be contained in a third 'field' class, called something like
-	// PFFormInstanceField, which holds these fields plus an instance of
-	// PFFormField. Too much work?
+	/**
+	 * somewhat of a hack - these two fields are for a field in a specific
+	 * representation of a form, not the form definition; ideally these
+	 * should be contained in a third 'field' class, called something like
+	 * PFFormInstanceField, which holds these fields plus an instance of
+	 * PFFormField. Too much work?
+	 */
 	private $mInputName;
 	private $mIsDisabled;
 
@@ -176,6 +182,8 @@ class PFFormField {
 		$form_is_disabled,
 		User $user
 	) {
+		global $wgPageFormsEmbeddedTemplates;
+
 		$parser = PFUtils::getParser();
 
 		$f = new PFFormField();
@@ -202,8 +210,21 @@ class PFFormField {
 			$f->template_field = PFTemplateField::create( $field_name, null );
 		}
 
+		$embeddedTemplate = $f->template_field->getHoldsTemplate();
+		if ( $embeddedTemplate != '' ) {
+			$f->mIsHidden = true;
+			$f->mHoldsTemplate = true;
+			// Store this information so that the embedded/"held"
+			// template - which is hopefully after this one in the
+			// form definition - can be handled correctly. In forms,
+			// both the embedding field and the embedded template are
+			// specified as such, but in templates (i.e., with
+			// #template_params), it's only the embedding field.
+			$wgPageFormsEmbeddedTemplates[$embeddedTemplate] = [ $template_name, $field_name ];
+		}
+
 		$semantic_property = null;
-		$cargo_table = $cargo_field = null;
+		$cargo_table = $cargo_field = $cargo_where = null;
 		$show_on_select = [];
 		$fullFieldName = $template_name . '[' . $field_name . ']';
 		$values = $valuesSourceType = $valuesSource = null;
@@ -222,7 +243,8 @@ class PFFormField {
 				$f->mIsList = true;
 			} elseif ( $component == 'unique' ) {
 				$f->mFieldArgs['unique'] = true;
-			} elseif ( $component == 'edittools' ) { // free text only
+			} elseif ( $component == 'edittools' ) {
+				// free text only
 				$f->mFieldArgs['edittools'] = true;
 			}
 
@@ -266,7 +288,7 @@ class PFFormField {
 						}
 						$option_div_pair = explode( '=>', $val, 2 );
 						if ( count( $option_div_pair ) > 1 ) {
-							$option = $option_div_pair[0];
+							$option = trim( $parser->recursiveTagParse( $option_div_pair[0] ) );
 							$div_id = $option_div_pair[1];
 							if ( array_key_exists( $div_id, $show_on_select ) ) {
 								$show_on_select[$div_id][] = $option;
@@ -318,6 +340,8 @@ class PFFormField {
 					$cargo_table = $sub_components[1];
 				} elseif ( $sub_components[0] == 'cargo field' ) {
 					$cargo_field = $sub_components[1];
+				} elseif ( $sub_components[0] == 'cargo where' ) {
+					$cargo_where = $sub_components[1];
 				} elseif ( $sub_components[0] == 'default filename' ) {
 					global $wgTitle;
 					$page_name = $wgTitle->getText();
@@ -336,12 +360,19 @@ class PFFormField {
 					$default_filename = $parser->recursiveTagParse( $default_filename );
 					$f->mFieldArgs['default filename'] = $default_filename;
 				} elseif ( $sub_components[0] == 'restricted' ) {
+					if ( method_exists( MediaWikiServices::class, 'getUserGroupManager' ) ) {
+						// MediaWiki >= 1.35
+						$effectiveGroups = MediaWikiServices::getInstance()->getUserGroupManager()->getUserEffectiveGroups( $user );
+					} else {
+						$effectiveGroups = $user->getEffectiveGroups();
+					}
 					$f->mIsRestricted = !array_intersect(
-						$user->getEffectiveGroups(), array_map( 'trim', explode( ',', $sub_components[1] ) )
+						$effectiveGroups, array_map( 'trim', explode( ',', $sub_components[1] ) )
 					);
 				}
 			}
-		} // end for
+		}
+		// end for
 
 		if ( $valuesSourceType !== null ) {
 			$f->mPossibleValues = PFValuesUtils::getAutocompleteValues( $valuesSource, $valuesSourceType );
@@ -384,18 +415,31 @@ class PFFormField {
 			$f->mPossibleValues = array_filter( $cargoValues, 'strlen' );
 		}
 
-		$mappingType = null;
-		if ( $f->mPossibleValues !== null ) {
-			if ( array_key_exists( 'mapping template', $f->mFieldArgs ) ) {
-				$mappingType = 'template';
-			} elseif ( array_key_exists( 'mapping property', $f->mFieldArgs ) ) {
-				$mappingType = 'property';
-			} elseif ( array_key_exists( 'mapping cargo table', $f->mFieldArgs ) &&
-				array_key_exists( 'mapping cargo field', $f->mFieldArgs ) ) {
-				$mappingType = 'cargo field';
-			} elseif ( $f->mUseDisplayTitle ) {
-				$f->mPossibleValues = PFValuesUtils::disambiguateLabels( $f->mPossibleValues );
+		if ( defined( 'CARGO_VERSION' ) && $cargo_where != null ) {
+			if ( $cargo_table == null || $cargo_field == null ) {
+				$fullCargoField = $f->template_field->getFullCargoField();
+				$table_and_field = explode( '|', $fullCargoField );
+				$cargo_table = $table_and_field[0];
+				$cargo_field = $table_and_field[1];
 			}
+			$cargoValues = PFValuesUtils::getValuesForCargoField( $cargo_table, $cargo_field, $cargo_where );
+			$f->mPossibleValues = array_filter( $cargoValues, 'strlen' );
+		}
+
+		if ( $f->mPossibleValues == null ) {
+			$f->mPossibleValues = $f->template_field->getPossibleValues();
+		}
+
+		$mappingType = null;
+		if ( array_key_exists( 'mapping template', $f->mFieldArgs ) ) {
+			$mappingType = 'template';
+		} elseif ( array_key_exists( 'mapping property', $f->mFieldArgs ) ) {
+			$mappingType = 'property';
+		} elseif ( array_key_exists( 'mapping cargo table', $f->mFieldArgs ) &&
+			array_key_exists( 'mapping cargo field', $f->mFieldArgs ) ) {
+			$mappingType = 'cargo field';
+		} elseif ( $f->mUseDisplayTitle ) {
+			$f->mPossibleValues = PFValuesUtils::disambiguateLabels( $f->mPossibleValues );
 		}
 
 		if ( $mappingType !== null && !empty( $f->mPossibleValues ) ) {
@@ -459,7 +503,7 @@ class PFFormField {
 			}
 		}
 
-		if ( $template_name == null || $template_name === '' ) {
+		if ( $template_name === null || $template_name === '' ) {
 			$f->mInputName = $field_name;
 		} elseif ( $template_in_form->allowsMultiple() ) {
 			// 'num' will get replaced by an actual index, either in PHP
@@ -513,7 +557,6 @@ class PFFormField {
 	function getCurrentValue( $template_instance_query_values, $form_submitted, $source_is_page, $all_instances_printed, &$val_modifier = null ) {
 		// Get the value from the request, if
 		// it's there, and if it's not an array.
-		$cur_value = null;
 		$field_name = $this->template_field->getFieldName();
 		$delimiter = $this->mFieldArgs['delimiter'];
 		$escaped_field_name = str_replace( "'", "\'", $field_name );
@@ -525,7 +568,7 @@ class PFFormField {
 			if ( isset( $template_instance_query_values[$fieldName] ) && isset( $template_instance_query_values[$fieldNameTag] ) ) {
 				$tag = $template_instance_query_values[$fieldNameTag];
 				if ( !preg_match( '/( |\n)$/', $tag ) ) {
-					$tag = $tag . "\n";
+					$tag .= "\n";
 				}
 				if ( trim( $template_instance_query_values[$fieldName] ) ) {
 					// Don't add the tag if field content has been removed.
@@ -571,7 +614,6 @@ class PFFormField {
 				if ( is_array( $field_query_val ) ) {
 					$cur_values = [];
 					if ( $map_field && $this->mPossibleValues !== null ) {
-						$cur_values = [];
 						foreach ( $field_query_val as $key => $val ) {
 							$val = trim( $val );
 							if ( $key === 'is_list' ) {
@@ -615,10 +657,6 @@ class PFFormField {
 				return str_replace( [ '<', '>' ], [ '&lt;', '&gt;' ], $str );
 
 			}
-		}
-
-		if ( !empty( $cur_value ) ) {
-			return $cur_value;
 		}
 
 		// Default values in new instances of multiple-instance
@@ -847,9 +885,15 @@ class PFFormField {
 		return $text;
 	}
 
-	// For now, HTML of an individual field depends on whether or not it's
-	// part of multiple-instance template; this may change if handling of
-	// such templates in form definitions gets more sophisticated.
+	/**
+	 * For now, HTML of an individual field depends on whether or not it's
+	 * part of multiple-instance template; this may change if handling of
+	 * such templates in form definitions gets more sophisticated.
+	 *
+	 * @param bool $part_of_multiple
+	 * @param bool $is_last_field_in_template
+	 * @return string
+	 */
 	function createMarkup( $part_of_multiple, $is_last_field_in_template ) {
 		$text = "";
 		$descPlaceholder = "";
@@ -952,7 +996,11 @@ class PFFormField {
 		$fullCargoField = $this->template_field->getFullCargoField();
 		if ( $fullCargoField !== null &&
 			!array_key_exists( 'full_cargo_field', $other_args ) ) {
-			$other_args['full_cargo_field'] = $fullCargoField;
+				if ( array_key_exists( 'cargo where', $other_args ) ) {
+					$other_args['full_cargo_field'] = $fullCargoField . '|' . $other_args['cargo where'];
+				} else {
+					$other_args['full_cargo_field'] = $fullCargoField;
+				}
 		}
 
 		if ( $this->template_field->getFieldType() == 'Hierarchy' ) {
@@ -972,7 +1020,7 @@ class PFFormField {
 	}
 
 	/**
-	 * Since Semantic Forms uses a hook system for the functions that
+	 * Since Page Forms uses a hook system for the functions that
 	 * create HTML inputs, most arguments are contained in the "$other_args"
 	 * array - create this array, using the attributes of this form
 	 * field and the template field it corresponds to, if any.

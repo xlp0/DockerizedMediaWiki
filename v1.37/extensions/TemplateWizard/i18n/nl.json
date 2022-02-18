@@ -7,9 +7,11 @@
 			"Klaas van Buiten",
 			"KlaasZ4usV",
 			"Mainframe98",
+			"McDutchie",
 			"Ndecouck",
 			"Patio",
-			"SPQRobin"
+			"SPQRobin",
+			"Romaine"
 		]
 	},
 	"templatewizard-add-all": "Alle parameters toevoegen",
@@ -18,6 +20,7 @@
 	"templatewizard-default": "Standaard: $1",
 	"templatewizard-desc": "Een invoegtoepassing voor WikiEditor dat helpt met sjablonen invoegen",
 	"templatewizard-dialog-title": "Sjabloon invoegen",
+	"templatewizard-dismissible-message-close": "Bericht sluiten en niet meer weergeven",
 	"templatewizard-help": "Meer leren over TemplateWizard",
 	"templatewizard-help-title": "Lees de TemplateWizard-hulppagina's op MediaWiki.org",
 	"templatewizard-insert": "Invoegen",
@@ -25,7 +28,7 @@
 	"templatewizard-invalid-values-edit": "Sjabloon bewerken",
 	"templatewizard-invalid-values-insert": "Sjabloon invoegen",
 	"templatewizard-no-description": "Er bestaat geen beschrijving voor dit sjabloon.",
-	"templatewizard-no-templatedata": "[[Template:$1|$1]] kan niet worden gebruikt in Template Wizard, omdat het <strong>geen [$2 TemplateData] etiketten</strong> heeft. Repareer dat alstublieft en probeer opnieuw. Als u een bug vermoedt, graag aan ons melden op de [$3 help page].",
+	"templatewizard-no-templatedata": "Vanwege het ontbreken van [$1 TemplateData] zijn de parameters voor dit sjabloon automatisch gegenereerd. Houd er rekening mee dat ze mogelijk niet kloppen.",
 	"templatewizard-opens-in-new-tab": "In nieuw tabblad openen",
 	"templatewizard-parameters-optional": "Optionele parameters",
 	"templatewizard-parameters-required": "Verplichte parameters",
@@ -36,6 +39,7 @@
 	"templatewizard-remove-template": "Sjabloon verwijderen?",
 	"templatewizard-remove-template-retry": "Sjabloon verwijderen",
 	"templatewizard-search-placeholder": "Zoeken naar een sjabloon",
+	"templatewizard-search-feedback-message": "Onlangs zijn er werkzaamheden afgerond om de zoekresultaten van sjablonen te verbeteren. Ga naar de [//meta.wikimedia.org/wiki/WMDE_Technical_Wishes/Finding_and_inserting_templates projectpagina] voor meer informatie over de veranderingen of om feedback te geven.",
 	"templatewizard-parambutton-add-title": "De parameter '$1' toevoegen",
 	"templatewizard-parambutton-remove-title": "De parameter '$1' verwijderen",
 	"templatewizard-remove-template-title": "verwijder template",

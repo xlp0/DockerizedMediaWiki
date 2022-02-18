@@ -9,7 +9,7 @@
  */
 class PFListBoxInput extends PFMultiEnumInput {
 
-	public static function getName() {
+	public static function getName(): string {
 		return 'listbox';
 	}
 
@@ -27,7 +27,7 @@ class PFListBoxInput extends PFMultiEnumInput {
 	 * Returns the HTML code to be included in the output page for this input.
 	 * @return string
 	 */
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		global $wgPageFormsTabIndex, $wgPageFormsFieldNum, $wgPageFormsShowOnSelect;
 
 		$className = ( $this->mIsMandatory ) ? 'mandatoryField' : 'createboxInput';
@@ -44,7 +44,8 @@ class PFListBoxInput extends PFMultiEnumInput {
 		$cur_values = PFValuesUtils::getValuesArray( $this->mCurrentValue, $delimiter );
 		$className .= ' pfShowIfSelected';
 
-		if ( ( $possible_values = $this->mOtherArgs['possible_values'] ) == null ) {
+		$possible_values = $this->mOtherArgs['possible_values'];
+		if ( $possible_values == null ) {
 			$possible_values = [];
 		}
 		$optionsText = '';

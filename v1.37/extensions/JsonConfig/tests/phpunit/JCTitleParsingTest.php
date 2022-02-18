@@ -1,7 +1,6 @@
 <?php
 namespace JsonConfig\Tests;
 
-use Exception;
 use JsonConfig\JCSingleton;
 use JsonConfig\JCTitle;
 use MediaWikiTestCase;
@@ -14,9 +13,10 @@ use MediaWikiTestCase;
  */
 class JCTitleParsingTest extends MediaWikiTestCase {
 
+	/** @var array */
 	private $configBackup;
 
-	public function setUp() : void {
+	public function setUp(): void {
 		parent::setUp();
 
 		// Copied from mediawiki/tests/phpunit/includes/title/MediaWikiTitleCodecTest.php
@@ -48,7 +48,7 @@ class JCTitleParsingTest extends MediaWikiTestCase {
 				] );
 	}
 
-	protected function tearDown() : void {
+	protected function tearDown(): void {
 		parent::tearDown();
 		list( JCSingleton::$titleMap, JCSingleton::$namespaces ) = $this->configBackup;
 	}
@@ -56,11 +56,6 @@ class JCTitleParsingTest extends MediaWikiTestCase {
 	/**
 	 * @dataProvider provideValues
 	 * @covers \JsonConfig\JCSingleton::parseTitle
-	 * @param $value
-	 * @param $ns
-	 * @param bool|null|string $expected false if unrecognized namespace,
-	 * and null if namespace is handled but does not match this title, string to match dbKey
-	 * @throws Exception
 	 */
 	public function testTitleParsing( $value, $ns, $expected = false ) {
 		$actual = JCSingleton::parseTitle( $value, $ns );

@@ -7,7 +7,11 @@
  * @ingroup Cargo
  */
 
+use MediaWiki\MediaWikiServices;
+
 class CargoDeclare {
+
+	public static $settings = [];
 
 	/**
 	 * "Reserved words" - terms that should not be used as table or field
@@ -89,19 +93,19 @@ class CargoDeclare {
 	 */
 	public static function validateFieldOrTableName( $name, $type ) {
 		if ( preg_match( '/\s/', $name ) ) {
-			return "Error: $type name \"$name\" contains whitespaces. Whitepaces of any kind are not allowed; consider using underscores (\"_\") instead.";
+			return wfMessage( "cargo-declare-validate-has-whitespace", $type, $name )->parse();
 		} elseif ( strpos( $name, '_' ) === 0 ) {
-			return "Error: $type name \"$name\" begins with an underscore; this is not allowed.";
+			return wfMessage( "cargo-declare-validate-starts-underscore", $type, $name )->parse();
 		} elseif ( substr( $name, -1 ) === '_' ) {
-			return "Error: $type name \"$name\" ends with an underscore; this is not allowed.";
+			return wfMessage( "cargo-declare-validate-ends-underscore", $type, $name )->parse();
 		} elseif ( strpos( $name, '__' ) !== false ) {
-			return "Error: $type name \"$name\" contains more than one underscore in a row; this is not allowed.";
+			return wfMessage( "cargo-declare-validate-gt1-underscore", $type, $name )->parse();
 		} elseif ( preg_match( '/[\.,\-<>(){}\[\]\\\\\/]/', $name ) ) {
-			return "Error: $type name \"$name\" cannot contain any of the following characters: .,-<>(){}[]\/";
+			return wfMessage( "cargo-declare-validate-bad-character", $type, $name, '.,-<>(){}[]\/' )->parse();
 		} elseif ( in_array( strtolower( $name ), self::$sqlReservedWords ) ) {
-			return "Error: \"$name\" cannot be used as a Cargo $type name, because it is an SQL keyword.";
+			return wfMessage( "cargo-declare-validate-name-sql-kw", $name, $type )->parse();
 		} elseif ( in_array( strtolower( $name ), self::$cargoReservedWords ) ) {
-			return "Error: \"$name\" cannot be used as a Cargo $type name, because it is already a Cargo keyword.";
+			return wfMessage( "cargo-declare-validate-name-cargo-kw", $name, $type )->parse();
 		}
 		return null;
 	}
@@ -109,13 +113,12 @@ class CargoDeclare {
 	/**
 	 * Handles the #cargo_declare parser function.
 	 *
-	 * @todo Internationalize error messages
 	 * @param Parser $parser
 	 * @return string
 	 */
 	public static function run( Parser $parser ) {
 		if ( !$parser->getTitle() || $parser->getTitle()->getNamespace() != NS_TEMPLATE ) {
-			return CargoUtils::formatError( "Error: #cargo_declare must be called from a template page." );
+			return CargoUtils::formatError( wfMessage( "cargo-declare-must-from-template" )->parse() );
 		}
 
 		$params = func_get_args();
@@ -138,9 +141,9 @@ class CargoDeclare {
 			if ( $key == '_table' ) {
 				$tableName = $value;
 				if ( in_array( strtolower( $tableName ), self::$sqlReservedWords ) ) {
-					return CargoUtils::formatError( "Error: \"$tableName\" cannot be used as a Cargo table name, because it is an SQL keyword." );
+					return CargoUtils::formatError( wfMessage( "cargo-declare-tablenm-is-sql-kw", $tableName )->parse() );
 				} elseif ( in_array( strtolower( $tableName ), self::$cargoReservedWords ) ) {
-					return CargoUtils::formatError( "Error: \"$tableName\" cannot be used as a Cargo table name, because it is already a Cargo keyword." );
+					return CargoUtils::formatError( wfMessage( "cargo-declare-tablenm-is-cargo-kw", $tableName )->parse() );
 				}
 			} elseif ( $key == '_parentTables' ) {
 				$tables = explode( ';', $value );
@@ -163,6 +166,9 @@ class CargoDeclare {
 										$parentTable['_remoteField'] = $extraParamValue;
 									} elseif ( $extraParamKey == '_alias' ) {
 										$parentTableAlias = $extraParamValue;
+									} else {
+										// It shouldn't be anything else.
+										return CargoUtils::formatError( wfMessage( "cargo-declare-parenttable-bad-parameter", $extraParamKey )->parse() );
 									}
 								}
 							}
@@ -266,16 +272,16 @@ class CargoDeclare {
 					return CargoUtils::formatError( $e->getMessage() );
 				}
 				if ( $fieldDescription == null ) {
-					return CargoUtils::formatError( "Error: could not parse type for field \"$fieldName\"." );
+					return CargoUtils::formatError( wfMessage( "cargo-declare-field-parse-fail", $fieldName )->parse() );
 				}
 				if ( $fieldDescription->mIsHierarchy == true && $fieldDescription->mType == 'Coordinates' ) {
-					return CargoUtils::formatError( "Error: Hierarchy enumeration field cannot be created for $fieldDescription->mType type." );
+					return CargoUtils::formatError( wfMessage( "cargo-declare-bad-hierarchy-type", $fieldDescription->mType )->parse() );
 				}
 				if ( $fieldDescription->mType == "Start date" || $fieldDescription->mType == "Start datetime" ) {
 					if ( !$hasStartEvent ) {
 						$hasStartEvent = true;
 					} else {
-						return CargoUtils::formatError( "Error: There can be only one Start date/datetime type field." );
+						return CargoUtils::formatError( wfMessage( "cargo-declare-ne1-startdttm" )->parse() );
 					}
 				}
 				if ( $fieldDescription->mType == "End date" || $fieldDescription->mType == "End datetime" ) {
@@ -283,9 +289,9 @@ class CargoDeclare {
 						$hasEndEvent = true;
 					} elseif ( !$hasStartEvent ) {
 						// if End date/datetime is declared before Start date/datetime type field
-						return CargoUtils::formatError( "Error: End date/datetime type must be declared after declaring Start date/datetime type field." );
+						return CargoUtils::formatError( wfMessage( "cargo-declare-def-start-before-end" )->parse() );
 					} else {
-						return CargoUtils::formatError( "Error: There can be only one End date/datetime type field." );
+						return CargoUtils::formatError( wfMessage( "cargo-declare-ne1-enddttm" )->parse() );
 					}
 				}
 				$tableSchema->mFieldDescriptions[$fieldName] = $fieldDescription;
@@ -300,12 +306,48 @@ class CargoDeclare {
 		if ( $validationError !== null ) {
 			return CargoUtils::formatError( $validationError );
 		}
+
+		// Validate table name.
+
 		$cdb = CargoUtils::getDB();
+
 		foreach ( $parentTables as $parentTableAlias => $extraParams ) {
-			if ( !$cdb->tableExists( $extraParams['Name'] ) ) {
-				return CargoUtils::formatError( "Error: Parent table \"$parentTable\" doesn't exist." );
+			$parentTableName = $extraParams['Name'];
+			$localField = $extraParams['_localField'];
+			$remoteField = $extraParams['_remoteField'];
+
+			// Validate that parent table exists.
+			if ( !$cdb->tableExists( $parentTableName ) ) {
+				// orig, gives wrong tablename
+				return CargoUtils::formatError( wfMessage( "cargo-declare-parenttable-not-exist", $parentTableName )->parse() );
+			}
+
+			// Validate that remote field exists.
+			if ( !$cdb->fieldExists( $parentTableName, $remoteField ) ) {
+				return CargoUtils::formatError( wfMessage( "cargo-declare-parenttable-no-field", $parentTableName, $remoteField )->parse() );
+			}
+
+			// Validate that local field exists;
+			// this needs to be validated against what is declared
+			// rather than against the DB, since the table may
+			// not be built yet.
+			$parentLocalFieldOK = false;
+			// Declared field names are stored in CargoTableSchema()
+			// object $tableSchema - check declared field names.
+			foreach ( $tableSchema->mFieldDescriptions as $a => $b ) {
+				if ( $a == $localField ) {
+					$parentLocalFieldOK = true;
+				}
+			}
+			// Check implied field name _pageName.
+			if ( $localField == "_pageName" ) {
+				$parentLocalFieldOK = true;
+			}
+			if ( !$parentLocalFieldOK ) {
+				return CargoUtils::formatError( wfMessage( "cargo-declare-invalid-localfield", $localField )->parse() );
 			}
 		}
+
 		$parserOutput = $parser->getOutput();
 
 		$parserOutput->setProperty( 'CargoTableName', $tableName );
@@ -337,6 +379,40 @@ class CargoDeclare {
 			$viewURL .= "_replacement";
 			$viewReplacementTableMsg = wfMessage( 'cargo-cargotables-viewreplacementlink' )->parse();
 			$text .= "; [$viewURL $viewReplacementTableMsg].";
+		}
+
+		// For use by the Page Exchange extension and possibly others,
+		// to automatically generate a Cargo table after the template
+		// that declares it is created.
+		if ( array_key_exists( 'createData', self::$settings ) ) {
+			$userID = self::$settings['userID'];
+			if ( class_exists( 'MediaWiki\User\UserFactory' ) ) {
+				// MW 1.35+
+				$user = MediaWikiServices::getInstance()
+					->getUserFactory()
+					->newFromId( (int)$userID );
+			} else {
+				$user = User::newFromId( (int)$userID );
+			}
+			$title = $parser->getTitle();
+			$templatePageID = $title->getArticleID();
+			try {
+				CargoUtils::recreateDBTablesForTemplate(
+					$templatePageID,
+					$createReplacement = false,
+					$user,
+					$tableName,
+					$tableSchema,
+					$parentTables
+				);
+			} catch ( MWException $e ) {
+				print wfMessage( 'edit-error-short', $e->getMessage() )->text() . "\n";
+				return;
+			}
+
+			// Ensure that this code doesn't get called more than
+			// once per page save.
+			unset( self::$settings['createData'] );
 		}
 
 		return $text;

@@ -44,6 +44,8 @@
 		var existingValuesOnly = (element.attr("existingvaluesonly") == "true");
 		this.existingValuesOnly = existingValuesOnly;
 		this.id = element.attr( "id" );
+		var inputData,
+			$input;
 
 		// This happens sometimes, although it shouldn't. If it does,
 		// something went wrong, so just exit.
@@ -53,8 +55,8 @@
 
 		try {
 			var opts = this.setOptions();
-			var $input = element.select2(opts);
-			var inputData = $input.data("select2");
+			$input = element.select2(opts);
+			inputData = $input.data("select2");
 		} catch (e) {
 			window.console.log(e);
 		}
@@ -85,7 +87,7 @@
 					dropdownItems[optionName] = $(this);
 				} );
 				tokensSelect.prepend(dropdownItems[newTokensOrder[i]]);
-				for ( var i = 1; i < newTokensOrder.length; i++ ){
+				for ( let i = 1; i < newTokensOrder.length; i++ ){
 					dropdownItems[newTokensOrder[i]].insertAfter(dropdownItems[newTokensOrder[i - 1]]);
 				}
 			}
@@ -97,6 +99,18 @@
 		// Copied from https://github.com/select2/select2/issues/3106#issuecomment-234702241
 		element.on("select2:select", function (evt) {
 			var elem = evt.params.data.element;
+
+			if( !elem ) {
+				var data = $(element).select2('data');
+				elem = data.filter(obj => {
+					return obj.id === evt.params.data.id
+				});
+				if( !elem.length || !elem[0] || typeof elem[0].element == 'undefined' ) {
+					return;
+				}
+				elem = elem[0].element;
+			}
+
 			var $element = $(elem);
 
 			$element.detach();
@@ -181,7 +195,7 @@
 			opts.ajax = this.getAjaxOpts();
 			opts.minimumInputLength = 1;
 			opts.language.inputTooShort = function() {
-				return mw.msg( "pf-select2-input-too-short", opts.minimumInputLength );
+				return mw.msg( "pf-autocomplete-input-too-short", opts.minimumInputLength );
 			};
 		} else if ( input_tagname === "SELECT" ) {
 			opts.data = this.getData( autocomplete_opts.autocompletesettings );
@@ -216,7 +230,7 @@
 			return pf.select2.base.prototype.textHighlight( result.id, term );
 		};
 		opts.language.searching = function() {
-			return mw.msg( "pf-select2-searching" );
+			return mw.msg( "pf-autocomplete-searching" );
 		};
 		opts.placeholder = $(input_id).attr( "placeholder" );
 
@@ -237,7 +251,7 @@
 		if ( maxvalues !== undefined ) {
 			opts.maximumSelectionLength = maxvalues;
 			opts.language.maximumSelected = function() {
-				return mw.msg( "pf-select2-selection-too-big", maxvalues );
+				return mw.msg( "pf-autocomplete-selection-too-big", maxvalues );
 			};
 		}
 		// opts.selectOnClose = true;
@@ -268,7 +282,9 @@
 			if ( autocompletesettings === 'external data' ) {
 				var name = $(input_id).attr(this.nameAttr($(input_id)));
 				// Remove the final "[]".
-				name = name.substring(0, name.length - 2);
+				if (name.includes('[]')) {
+					name = name.substring(0, name.length - 2);
+				}
 				var wgPageFormsEDSettings = mw.config.get( 'wgPageFormsEDSettings' );
 				var edgValues = mw.config.get( 'edgValues' );
 				data = {};
@@ -326,9 +342,9 @@
 				url: my_server,
 				dataType: 'json',
 				async: false,
-				success: function(data) {
+				success: function(value) {
 					// Convert data into the format accepted by Select2.
-					data.pfautocomplete.forEach( function(item) {
+					value.pfautocomplete.forEach( function(item) {
 						if (item.displaytitle !== undefined) {
 							values.push({
 								id: item.displaytitle, text: item.displaytitle
@@ -362,6 +378,9 @@
 		if ( autocomplete_type === 'cargo field' ) {
 			var table_and_field = data_source.split('|');
 			my_server += "?action=pfautocomplete&format=json&cargo_table=" + table_and_field[0] + "&cargo_field=" + table_and_field[1];
+			if ( table_and_field.length > 2 ) {
+				my_server += '&cargo_where=' + table_and_field[2];
+			}
 		} else {
 			my_server += "?action=pfautocomplete&format=json&" + autocomplete_opts.autocompletedatatype + "=" + data_source;
 		}

@@ -14,12 +14,12 @@ use RequestContext;
  */
 class ApiSanitizeMapDataTest extends MediaWikiTestCase {
 
-	public function setUp() : void {
+	protected function setUp(): void {
+		parent::setUp();
 		$this->setMwGlobals( [
 			'wgScriptPath' => '/w',
 			'wgScript' => '/w/index.php',
 		] );
-		parent::setUp();
 	}
 
 	/**
@@ -56,7 +56,7 @@ class ApiSanitizeMapDataTest extends MediaWikiTestCase {
 	}
 
 	public function provideTest() {
-		// @codingStandardsIgnoreStart
+		// phpcs:disable Generic.Files.LineLength
 		return [
 			[ 'Foo', '{', false, '<p>Couldn\'t parse JSON: Syntax error
 </p>' ],
@@ -87,7 +87,7 @@ class ApiSanitizeMapDataTest extends MediaWikiTestCase {
 		}
 	}]' ],
 		];
-		// @codingStandardsIgnoreEnd
+		// phpcs:enable
 	}
 
 	public function provideErrors() {

@@ -43,7 +43,7 @@ class PFFormEditAction extends Action {
 	/**
 	 * Adds an "action" (i.e., a tab) to edit the current article with
 	 * a form
-	 * @param Title $obj
+	 * @param IContextSource $obj
 	 * @param array &$links
 	 * @return true
 	 */
@@ -145,7 +145,8 @@ class PFFormEditAction extends Action {
 			unset( $content_actions['viewsource'] );
 		}
 
-		return true; // always return true, in order not to stop MW's hook processing!
+		// always return true, in order not to stop MW's hook processing!
+		return true;
 	}
 
 	static function displayFormChooser( $output, $title ) {
@@ -250,7 +251,7 @@ class PFFormEditAction extends Action {
 		);
 
 		$pagesPerForm = [];
-		while ( $row = $dbr->fetchRow( $res ) ) {
+		while ( $row = $res->fetchRow() ) {
 			$formName = $row['pp_value'];
 			$pagesPerForm[$formName] = $row['total_pages'];
 		}
@@ -296,12 +297,7 @@ class PFFormEditAction extends Action {
 
 		if ( count( $form_names ) > 1 ) {
 			$warning_text = "\t" . '<div class="warningbox">' . wfMessage( 'pf_formedit_morethanoneform' )->text() . "</div>\n";
-			if ( method_exists( $output, 'addWikiTextAsInterface' ) ) {
-				// MW 1.32+
-				$output->addWikiTextAsInterface( $warning_text );
-			} else {
-				$output->addWikiText( $warning_text );
-			}
+			$output->addWikiTextAsInterface( $warning_text );
 		}
 
 		$form_name = $form_names[0];

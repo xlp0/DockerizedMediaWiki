@@ -8,7 +8,6 @@
 	"rules": {
 		"camelcase": "off",
 		"eqeqeq": "off",
-		"one-var": "off",
 		"max-statements-per-line": "off",
 		"no-implicit-globals": "off",
 		"no-jquery/no-global-selector": "off",
@@ -20,7 +19,6 @@
 		"no-undef": "off",
 		"no-unused-vars": "off",
 		"no-useless-escape": "off",
-		"vars-on-top": "off",
 		"array-callback-return": "warn",
 		"es/no-object-assign": "warn",
 		"no-shadow": "warn",

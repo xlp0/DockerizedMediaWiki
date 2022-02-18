@@ -15,14 +15,6 @@ class CargoUtils {
 	private static $CargoDB = null;
 
 	/**
-	 * @global string $wgDBuser
-	 * @global string $wgDBpassword
-	 * @global string $wgCargoDBserver
-	 * @global string $wgCargoDBname
-	 * @global string $wgCargoDBuser
-	 * @global string $wgCargoDBpasswordd
-	 * @global string $wgCargoDBprefix
-	 * @global string $wgCargoDBtype
 	 * @return Database or DatabaseBase
 	 */
 	public static function getDB() {
@@ -33,7 +25,8 @@ class CargoUtils {
 		global $wgDBuser, $wgDBpassword, $wgDBprefix, $wgDBservers;
 		global $wgCargoDBserver, $wgCargoDBname, $wgCargoDBuser, $wgCargoDBpassword, $wgCargoDBprefix, $wgCargoDBtype;
 
-		$dbr = wfGetDB( DB_REPLICA );
+		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
+		$dbr = $lb->getConnectionRef( DB_REPLICA );
 		$server = $dbr->getServer();
 		$name = $dbr->getDBname();
 		$type = $dbr->getType();
@@ -94,7 +87,8 @@ class CargoUtils {
 	 * Gets a page property for the specified page ID and property name.
 	 */
 	public static function getPageProp( $pageID, $pageProp ) {
-		$dbr = wfGetDB( DB_REPLICA );
+		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
+		$dbr = $lb->getConnectionRef( DB_REPLICA );
 		$value = $dbr->selectField( 'page_props', [
 				'pp_value'
 			], [
@@ -114,7 +108,8 @@ class CargoUtils {
 	 * Similar to getPageProp().
 	 */
 	public static function getAllPageProps( $pageProp ) {
-		$dbr = wfGetDB( DB_REPLICA );
+		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
+		$dbr = $lb->getConnectionRef( DB_REPLICA );
 		$res = $dbr->select( 'page_props', [
 			'pp_page',
 			'pp_value'
@@ -142,7 +137,8 @@ class CargoUtils {
 	 * hopefully there's exactly one of them.
 	 */
 	public static function getTemplateIDForDBTable( $tableName ) {
-		$dbr = wfGetDB( DB_REPLICA );
+		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
+		$dbr = $lb->getConnectionRef( DB_REPLICA );
 		$page = $dbr->selectField( 'page_props', [
 			'pp_page'
 			], [
@@ -161,17 +157,13 @@ class CargoUtils {
 	}
 
 	public static function displayErrorMessage( OutputPage $out, Message $message ) {
-		if ( method_exists( $out, 'wrapWikiTextAsInterface' ) ) {
-			// MW 1.32+
-			$out->wrapWikiTextAsInterface( 'error', $message->plain() );
-		} else {
-			$out->addHTML( self::formatError( $message->parse() ) );
-		}
+		$out->wrapWikiTextAsInterface( 'error', $message->plain() );
 	}
 
 	public static function getTables() {
 		$tableNames = [];
-		$dbr = wfGetDB( DB_REPLICA );
+		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
+		$dbr = $lb->getConnectionRef( DB_REPLICA );
 		$res = $dbr->select( 'cargo_tables', 'main_table' );
 		foreach ( $res as $row ) {
 			$tableName = $row->main_table;
@@ -186,7 +178,8 @@ class CargoUtils {
 
 	public static function getParentTables( $tableName ) {
 		$parentTables = [];
-		$dbr = wfGetDB( DB_REPLICA );
+		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
+		$dbr = $lb->getConnectionRef( DB_REPLICA );
 		$res = $dbr->select( 'cargo_tables', [ 'template_id', 'main_table' ] );
 		foreach ( $res as $row ) {
 			if ( $tableName == $row->main_table ) {
@@ -227,7 +220,8 @@ class CargoUtils {
 
 	public static function getDrilldownTabsParams( $tableName ) {
 		$drilldownTabs = [];
-		$dbr = wfGetDB( DB_REPLICA );
+		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
+		$dbr = $lb->getConnectionRef( DB_REPLICA );
 		$res = $dbr->select( 'cargo_tables', [ 'template_id', 'main_table' ] );
 		foreach ( $res as $row ) {
 			if ( $tableName == $row->main_table ) {
@@ -253,7 +247,8 @@ class CargoUtils {
 			}
 		}
 		$tableSchemas = [];
-		$dbr = wfGetDB( DB_REPLICA );
+		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
+		$dbr = $lb->getConnectionRef( DB_REPLICA );
 		$res = $dbr->select( 'cargo_tables', [ 'main_table', 'table_schema' ],
 			[ 'main_table' => $mainTableNames ] );
 		foreach ( $res as $row ) {
@@ -466,16 +461,15 @@ class CargoUtils {
 
 		// Unfortunately, date handling in general - and date extraction
 		// specifically - is done differently in almost every DB
-		// system. If support were ever added for SQLite or Oracle,
-		// those would require special handling as well.
+		// system. If support was ever added for SQLite,
+		// that would require special handling as well.
 		if ( $wgCargoDBtype == 'postgres' ) {
 			$yearValue = "EXTRACT(YEAR FROM $dateDBField)";
 			$monthValue = "EXTRACT(MONTH FROM $dateDBField)";
 			$dayValue = "EXTRACT(DAY FROM $dateDBField)";
-		} else { // MySQL, MS SQL Server
+		} else { // MySQL
 			$yearValue = "YEAR($dateDBField)";
 			$monthValue = "MONTH($dateDBField)";
-			// SQL Server only supports DAY(), not DAYOFMONTH().
 			$dayValue = "DAY($dateDBField)";
 		}
 		return [ $yearValue, $monthValue, $dayValue ];
@@ -485,7 +479,6 @@ class CargoUtils {
 	 * Parses a piece of wikitext differently depending on whether
 	 * we're in a special or regular page.
 	 *
-	 * @global WebRequest $wgRequest
 	 * @param string $value
 	 * @param Parser $parser
 	 * @return string
@@ -551,12 +544,6 @@ class CargoUtils {
 			// The 'pagevalues' action is also a Cargo special page.
 			$wgRequest->getVal( 'action' ) == 'pagevalues' ) {
 			$parserOptions = ParserOptions::newFromAnon();
-			if ( !defined( 'ParserOutput::SUPPORTS_UNWRAP_TRANSFORM' ) ) {
-				// Remove '<div class="mw-parser-output">' from around
-				// the value, if it was parsed - this method was
-				// deprecated in MW 1.31.
-				$parserOptions->setWrapOutputClass( false );
-			}
 			$parserOutput = $parser->parse( $value, $title, $parserOptions, false );
 			$value = $parserOutput->getText( [ 'unwrap' => true ] );
 		} else {
@@ -600,25 +587,33 @@ class CargoUtils {
 		$templatePageID,
 		$createReplacement,
 		User $user,
-		$tableName = null
+		$tableName = null,
+		$tableSchema = null,
+		$parentTables = null
 	) {
-		$tableSchemaString = self::getPageProp( $templatePageID, 'CargoFields' );
-		// First, see if there even is DB storage for this template -
-		// if not, exit.
-		if ( $tableSchemaString === null ) {
-			return false;
-		}
-		$tableSchema = CargoTableSchema::newFromDBString( $tableSchemaString );
-
 		if ( $tableName == null ) {
 			$tableName = self::getPageProp( $templatePageID, 'CargoTableName' );
 		}
 
-		$parentTablesStr = self::getPageProp( $templatePageID, 'CargoParentTables' );
-		if ( $parentTablesStr ) {
-			$parentTables = unserialize( $parentTablesStr );
+		if ( $tableSchema == null ) {
+			$tableSchemaString = self::getPageProp( $templatePageID, 'CargoFields' );
+			// First, see if there even is DB storage for this template -
+			// if not, exit.
+			if ( $tableSchemaString === null ) {
+				return false;
+			}
+			$tableSchema = CargoTableSchema::newFromDBString( $tableSchemaString );
 		} else {
-			$parentTables = [];
+			$tableSchemaString = $tableSchema->toDBString();
+		}
+
+		if ( $parentTables == null ) {
+			$parentTablesStr = self::getPageProp( $templatePageID, 'CargoParentTables' );
+			if ( $parentTablesStr ) {
+				$parentTables = unserialize( $parentTablesStr );
+			} else {
+				$parentTables = [];
+			}
 		}
 
 		$dbw = wfGetDB( DB_MASTER );
@@ -693,7 +688,8 @@ class CargoUtils {
 	}
 
 	public static function tableFullyExists( $tableName ) {
-		$dbr = wfGetDB( DB_REPLICA );
+		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
+		$dbr = $lb->getConnectionRef( DB_REPLICA );
 		$numRows = $dbr->selectRowCount( 'cargo_tables', '*', [ 'main_table' => $tableName ], __METHOD__ );
 		if ( $numRows == 0 ) {
 			return false;
@@ -706,51 +702,37 @@ class CargoUtils {
 	public static function fieldTypeToSQLType( $fieldType, $dbType, $size = null ) {
 		global $wgCargoDefaultStringBytes;
 
-		// Possible values for $dbType: "mssql", "mysql", "oracle",
-		// "postgres", "sqlite"
+		// Possible values for $dbType: "mysql", "postgres", "sqlite"
 		// @TODO - make sure it's one of these.
 		if ( $fieldType == 'Integer' ) {
 			switch ( $dbType ) {
-				case "mssql":
 				case "mysql":
 				case "postgres":
 					return 'Int';
 				case "sqlite":
 					return 'INTEGER';
-				case "oracle":
-					return 'Number';
 			}
 		} elseif ( $fieldType == 'Float' || $fieldType == 'Rating' ) {
 			switch ( $dbType ) {
-				case "mssql":
-					return 'Float';
 				case "mysql":
 					return 'Double';
 				case "postgres":
 					return 'Numeric';
 				case "sqlite":
 					return 'REAL';
-				case "oracle":
-					return 'Number';
 			}
 		} elseif ( $fieldType == 'Boolean' ) {
 			switch ( $dbType ) {
-				case "mssql":
-					return 'Bit';
 				case "mysql":
 				case "postgres":
 					return 'Boolean';
 				case "sqlite":
 					return 'INTEGER';
-				case "oracle":
-					return 'Byte';
 			}
 		} elseif ( $fieldType == 'Date' || $fieldType == 'Start date' || $fieldType == 'End date' ) {
 			switch ( $dbType ) {
-				case "mssql":
 				case "mysql":
 				case "postgres":
-				case "oracle":
 					return 'Date';
 				case "sqlite":
 					// Should really be 'REAL', with
@@ -763,12 +745,9 @@ class CargoUtils {
 			// so the best solution for time zones is probably
 			// to have a separate field for them.
 			switch ( $dbType ) {
-				case "mssql":
-					return 'Datetime2';
 				case "mysql":
 					return 'Datetime';
 				case "postgres":
-				case "oracle":
 					return 'Timestamp';
 				case "sqlite":
 					// Should really be 'REAL', with
@@ -777,14 +756,10 @@ class CargoUtils {
 			}
 		} elseif ( $fieldType == 'Text' || $fieldType == 'Wikitext' ) {
 			switch ( $dbType ) {
-				case "mssql":
-					return 'Varchar(Max)';
 				case "mysql":
 				case "postgres":
 				case "sqlite":
 					return 'Text';
-				case "oracle":
-					return 'Varchar2(4000)';
 			}
 		} elseif ( $fieldType == 'Searchtext' ) {
 			if ( $dbType != 'mysql' ) {
@@ -796,8 +771,6 @@ class CargoUtils {
 				$size = $wgCargoDefaultStringBytes;
 			}
 			switch ( $dbType ) {
-				case "mssql":
-					return "Varchar($size)";
 				case "mysql":
 				case "postgres":
 					// For at least MySQL, there's a limit
@@ -811,8 +784,6 @@ class CargoUtils {
 					} else {
 						return "Varchar($size)";
 					}
-				case "oracle":
-					return "Varchar2($size)";
 				case "sqlite":
 					return 'TEXT';
 			}
@@ -1039,6 +1010,16 @@ class CargoUtils {
 		}
 	}
 
+	public static function specialTableNames() {
+		$specialTableNames = [ '_pageData', '_fileData' ];
+		if ( class_exists( 'FDGanttContent' ) ) {
+			// The Flex Diagrams extension is installed.
+			$specialTableNames[] = '_bpmnData';
+			$specialTableNames[] = '_ganttData';
+		}
+		return $specialTableNames;
+	}
+
 	public static function fullTextMatchSQL( $cdb, $tableName, $fieldName, $searchTerm ) {
 		$fullFieldName = self::escapedFieldName( $cdb, $tableName, $fieldName );
 		$searchTerm = $cdb->addQuotes( $searchTerm );
@@ -1254,31 +1235,17 @@ class CargoUtils {
 	}
 
 	public static function getSpecialPage( $pageName ) {
-		if ( class_exists( 'MediaWiki\Special\SpecialPageFactory' ) ) {
-			// MW 1.32+
-			return MediaWikiServices::getInstance()
-				->getSpecialPageFactory()
-				->getPage( $pageName );
-		} else {
-			return SpecialPageFactory::getPage( $pageName );
-		}
+		return MediaWikiServices::getInstance()->getSpecialPageFactory()
+			->getPage( $pageName );
 	}
 
 	/**
 	 * Get the wiki's content language.
-	 * This is a wrapper to maintain backwards-compatibility for MediaWiki 1.31 and earlier.
 	 * @since 2.6
 	 * @return Language
 	 */
 	public static function getContentLang() {
-		if ( method_exists( MediaWikiServices::class, 'getContentLanguage' ) ) {
-			// MW >= 1.32
-			$contLang = MediaWikiServices::getInstance()->getContentLanguage();
-		} else {
-			global $wgContLang;
-			$contLang = $wgContLang;
-		}
-		return $contLang;
+		return MediaWikiServices::getInstance()->getContentLanguage();
 	}
 
 	public static function logTableAction( $actionName, $tableName, User $user ) {
@@ -1330,6 +1297,43 @@ class CargoUtils {
 				throw new MWException( "Error: The entry of hierarchy values cannot be empty." );
 			}
 		}
+	}
+
+	/**
+	 * A helper function, because Title::getTemplateLinksTo() is broken in
+	 * MW 1.37.
+	 */
+	public static function getTemplateLinksTo( $templateTitle, $options = [] ) {
+		$db = wfGetDB( DB_REPLICA );
+
+		$selectFields = LinkCache::getSelectFields();
+		$selectFields[] = 'page_namespace';
+		$selectFields[] = 'page_title';
+
+		$res = $db->select(
+			[ 'page', 'templatelinks' ],
+			$selectFields,
+			[
+				"tl_from=page_id",
+				"tl_namespace" => NS_TEMPLATE,
+				"tl_title" => $templateTitle->mDbkeyform
+			],
+			__METHOD__,
+			$options
+		);
+
+		$retVal = [];
+		if ( $res->numRows() ) {
+			$linkCache = MediaWikiServices::getInstance()->getLinkCache();
+			foreach ( $res as $row ) {
+				$titleObj = Title::makeTitle( $row->page_namespace, $row->page_title );
+				if ( $titleObj ) {
+					$linkCache->addGoodLinkObjFromRow( $titleObj, $row );
+					$retVal[] = $titleObj;
+				}
+			}
+		}
+		return $retVal;
 	}
 
 }

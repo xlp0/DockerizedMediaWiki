@@ -1,9 +1,10 @@
 <?php
 namespace Kartographer\Tests;
 
+use ExtensionRegistry;
 use Kartographer\State;
 use MediaWiki\MediaWikiServices;
-use MediaWikiTestCase;
+use MediaWikiLangTestCase;
 use ParserOptions;
 use ParserOutput;
 use Title;
@@ -14,8 +15,9 @@ use Title;
  * @covers \Kartographer\Tag\MapFrame
  * @covers \Kartographer\Tag\MapLink
  */
-class KartographerTest extends MediaWikiTestCase {
-	private $wikitextJson = '{
+class KartographerTest extends MediaWikiLangTestCase {
+
+	private const WIKITEXT_JSON = '{
     "type": "Feature",
     "geometry": {
       "type": "Point",
@@ -28,19 +30,23 @@ class KartographerTest extends MediaWikiTestCase {
     }
   }';
 
-	public function setUp() : void {
+	protected function setUp(): void {
+		parent::setUp();
 		$this->setMwGlobals( [
 			'wgScriptPath' => '/w',
 			'wgScript' => '/w/index.php',
 		] );
-		parent::setUp();
+	}
+
+	/**
+	 * @return bool
+	 */
+	private function hasParserFunctions() {
+		return ExtensionRegistry::getInstance()->isLoaded( 'ParserFunctions' );
 	}
 
 	/**
 	 * @dataProvider provideTagData
-	 * @param string|false $expected
-	 * @param string $input
-	 * @param string $message
 	 */
 	public function testTagData( $expected, $input, $message, $wikivoyageMode = false ) {
 		$this->setMwGlobals( 'wgKartographerWikivoyageMode', $wikivoyageMode );
@@ -49,10 +55,13 @@ class KartographerTest extends MediaWikiTestCase {
 
 		if ( $expected === false ) {
 			$this->assertTrue( $state->hasBrokenTags(), $message . ' Parse is expected to fail' );
-			$this->assertTrue(
-				$this->hasTrackingCategory( $output, 'kartographer-broken-category' ),
-				$message . ' Category for failed maps should be added'
-			);
+
+			if ( $this->hasParserFunctions() ) {
+				$this->assertTrue(
+					$this->hasTrackingCategory( $output, 'kartographer-broken-category' ),
+					$message . ' Category for failed maps should be added'
+				);
+			}
 			return;
 		}
 		$this->assertFalse( $state->hasBrokenTags(), $message . ' Parse is expected to succeed' );
@@ -71,7 +80,7 @@ class KartographerTest extends MediaWikiTestCase {
 	}
 
 	public function provideTagData() {
-		// @codingStandardsIgnoreStart
+		// phpcs:disable Generic.Files.LineLength
 		$validJson = '{
     "type": "Feature",
     "geometry": {
@@ -142,22 +151,29 @@ class KartographerTest extends MediaWikiTestCase {
       "marker-size": "medium"
     }
   }</mapframe>', 'Invalid JSON 6' ],
-			[ $wikitextJsonParsed, "<mapframe width=700 height=400 zoom=13 longitude=-122 latitude=37>[{$this->wikitextJson}]</mapframe>", '<mapframe> with parsable text and description' ],
-			[ $wikitextJsonParsed, "<maplink zoom=13 longitude=-122 latitude=37>[{$this->wikitextJson}]</maplink>", '<maplink> with parsable text and description' ],
+			[
+				$wikitextJsonParsed,
+				'<mapframe width=700 height=400 zoom=13 longitude=-122 latitude=37>[' .
+					self::WIKITEXT_JSON . ']</mapframe>',
+				'<mapframe> with parsable text and description'
+			],
+			[
+				$wikitextJsonParsed,
+				'<maplink zoom=13 longitude=-122 latitude=37>[' .
+					self::WIKITEXT_JSON . ']</maplink>',
+				'<maplink> with parsable text and description'
+			],
 
 			// Bugs
 			[ '[]', "<maplink zoom=13 longitude=-122 latitude=37>\t\r\n </maplink>", 'T127345: whitespace-only tag content, <maplink>' ],
 			[ $xssJsonSanitized, "<maplink zoom=13 longitude=10 latitude=20>$xssJson</maplink>", 'T134719: XSS via __proto__' ],
 			[ '[]', '<mapframe show="foo, bar, baz" zoom=12 latitude=10 longitude=20 width=100 height=100 />', 'T148971 - weird LiveData', true ],
 		];
-		// @codingStandardsIgnoreEnd
+		// phpcs:enable
 	}
 
 	/**
 	 * @dataProvider provideResourceModulesData
-	 * @param string $input
-	 * @param array $expectedModules
-	 * @param array $expectedStyles
 	 */
 	public function testResourceModules( $input, array $expectedModules, array $expectedStyles ) {
 		$this->setMwGlobals( 'wgKartographerStaticMapframe', false );
@@ -193,17 +209,13 @@ class KartographerTest extends MediaWikiTestCase {
 
 	/**
 	 * @dataProvider provideLiveData
-	 * @param string $text
-	 * @param string[] $expected
-	 * @param bool $preview
-	 * @param bool $sectionPreview
 	 */
 	public function testLiveData(
 		$text, array $expected, $preview, $sectionPreview, $wikivoyageMode
 	) {
 		$this->setMwGlobals( 'wgKartographerWikivoyageMode', $wikivoyageMode );
 		$output = $this->parse( $text,
-			function ( ParserOptions $options ) use ( $preview, $sectionPreview ) {
+			static function ( ParserOptions $options ) use ( $preview, $sectionPreview ) {
 				$options->setIsPreview( $preview );
 				$options->setIsSectionPreview( $sectionPreview );
 			}
@@ -214,7 +226,7 @@ class KartographerTest extends MediaWikiTestCase {
 	}
 
 	public function provideLiveData() {
-		// @codingStandardsIgnoreStart
+		// phpcs:disable Generic.Files.LineLength
 		$frameAndLink =
 			<<<WIKITEXT
 			<maplink latitude=10 longitude=20 zoom=13>
@@ -245,14 +257,11 @@ WIKITEXT;
 			[ $frameAndLink, [ '_0616e83db3b0cc67d5f835eb765da7a1ca26f4ce', '_5e4843908b3c3d3b11ac4321edadedde28882cc2' ], true, true, false ],
 			[ $wikivoyageMaps, [ 'foo', 'bar', 'baz' ], false, false, true ],
 		];
-		// @codingStandardsIgnoreEnd
+		// phpcs:enable
 	}
 
 	/**
 	 * @dataProvider providePageProps
-	 * @param strin $text
-	 * @param int|null $frames
-	 * @param int|null $links
 	 */
 	public function testPageProps( $text, $frames, $links ) {
 		$po = $this->parse( $text );
@@ -273,7 +282,7 @@ WIKITEXT;
 	/**
 	 * Parses wikitext
 	 * @param string $text
-	 * @param callable $optionsCallback
+	 * @param callable|null $optionsCallback
 	 * @return ParserOutput
 	 */
 	private function parse( $text, callable $optionsCallback = null ) {

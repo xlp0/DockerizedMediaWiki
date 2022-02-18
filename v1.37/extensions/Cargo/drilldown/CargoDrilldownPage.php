@@ -10,8 +10,6 @@
  * @ingroup Cargo
  */
 
-use MediaWiki\MediaWikiServices;
-
 class CargoDrilldownPage extends QueryPage {
 	public $tableName = "";
 	public $tableAlias = "";
@@ -238,7 +236,7 @@ END;
 				continue;
 			}
 			$res = $cdb->select( $table, 'COUNT(*) AS total' );
-			$row = $cdb->fetchRow( $res );
+			$row = $res->fetchRow();
 			$tableRows = $row['total'];
 			// FIXME: hardcoded ()
 			$tableStr = $this->displayTableName( $table ) . " ($tableRows)";
@@ -995,7 +993,7 @@ END;
 		] );
 
 		$comboboxButton = new OOUI\ButtonInputWidget( [
-			'label' => $this->msg( 'searchresultshead' )->parse(),
+			'label' => $this->msg( 'cargo-drilldown-search' )->parse(),
 			'type' => 'submit',
 			'flags' => 'progressive'
 		] );
@@ -1005,48 +1003,6 @@ END;
 		] );
 		$hiddenInputs = $this->printHiddenInputs( $inputName );
 		return Html::rawElement( 'form', [], $hiddenInputs . $comboboxLayout );
-	}
-
-	/**
-	 * Appears to be unused
-	 *
-	 * @global Language $wgContLang
-	 * @param string $input_name Used in the HTML name attribute
-	 * @param int[]|null $cur_value an array that may contain the keys 'day', 'month' & 'year' with an
-	 * integer value
-	 * @return string
-	 */
-	public function printDateInput( $input_name, $cur_value = null ) {
-		/** @todo Shouldn't this use the user language? */
-		if ( method_exists( MediaWikiServices::class, 'getContentLanguage' ) ) {
-			// MW >= 1.32
-			$contLang = MediaWikiServices::getInstance()->getContentLanguage();
-		} else {
-			global $wgContLang;
-			$contLang = $wgContLang;
-		}
-		$month_names = $contLang->getMonthNamesArray();
-
-		if ( is_array( $cur_value ) && array_key_exists( 'month', $cur_value ) ) {
-			$selected_month = $cur_value['month'];
-		} else {
-			$selected_month = null;
-		}
-		$text = ' <select name="' . $input_name . "[month]\">\n";
-		/** @todo Always ouputs an American Date. Should use global. */
-		# global $wgAmericanDates;
-		foreach ( $month_names as $i => $name ) {
-			// pad out month to always be two digits
-			$month_value = str_pad( $i, 2, "0", STR_PAD_LEFT );
-			$selected_str = ( $i == $selected_month ) ? "selected" : "";
-			$text .= "\t<option value=\"$month_value\" $selected_str>$name</option>\n";
-		}
-		$text .= "\t</select>\n";
-		$text .= '<input name="' . $input_name . '[day]" type="text" size="2" value="' .
-			$cur_value['day'] . '" />' . "\n";
-		$text .= '<input name="' . $input_name . '[year]" type="text" size="4" value="' .
-			$cur_value['year'] . '" />' . "\n";
-		return $text;
 	}
 
 	/**
@@ -1810,7 +1766,7 @@ END;
 				$cdb->select( $tableNames,
 					"MAX( $calendarFieldTableAlias.$calendarFieldName ) as start_date", $conds,
 					null, [], $joinConds );
-			$row = $cdb->fetchRow( $res );
+			$row = $res->fetchRow();
 			if ( $row['start_date'] ) {
 				if ( $this->drilldownTabsParams ) {
 					if ( !array_key_exists( 'start date', $currentTabParams ) ) {

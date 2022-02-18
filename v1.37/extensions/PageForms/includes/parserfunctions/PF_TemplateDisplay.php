@@ -22,22 +22,13 @@ class PFTemplateDisplay {
 		$tableFieldValues = [];
 
 		$templateTitle = $frame->title;
-		$properties = PageProps::getInstance()->getProperties(
-			[ $templateTitle ], [ 'PageFormsTemplateParams' ]
-		);
-		if ( count( $properties ) == 0 ) {
+		$template = PFTemplate::newFromName( $templateTitle->getText() );
+		$templateParams = $template->getTemplateParams();
+		if ( $templateParams == null ) {
 			return '<div class="error">' . 'Error: #template_params must be called in the template "' . $templateTitle->getText() . '".</div>';
 		}
 
-		$parser->getOutput()->addModules( 'ext.pageforms.templatedisplay' );
-
-		$paramsForPage = reset( $properties );
-		$paramsForProperty = reset( $paramsForPage );
-		$templateParams = unserialize( $paramsForProperty );
-
-		foreach ( $templateParams as $paramName => $paramAttributes ) {
-			$templateFields[$paramName] = PFTemplateField::newFromParams( $paramName, $paramAttributes );
-		}
+		$parser->getOutput()->addModules( [ 'ext.pageforms.templatedisplay' ] );
 
 		foreach ( $params as $param ) {
 			$parts = explode( '=', $param, 2 );
@@ -54,33 +45,8 @@ class PFTemplateDisplay {
 			}
 		}
 
-		list( $tableName, $isDeclared ) = CargoUtils::getTableNameForTemplate( $templateTitle );
-
-		// Get field data from Cargo, if there is any.
-		if ( $tableName !== null ) {
-			$cargoTableSchemas = CargoUtils::getTableSchemas( [ $tableName ] );
-			$cargoFieldDescriptions = $cargoTableSchemas[$tableName]->mFieldDescriptions;
-			foreach ( $templateFields as $fieldName => $templateField ) {
-				$fullCargoFieldName = $templateField->getFullCargoField();
-				if ( $fullCargoFieldName == null ) {
-					$cargoFieldName = str_replace( ' ', '_', $fieldName );
-				} else {
-					list( $cargoTableName, $cargoFieldName ) = explode( '|', $fullCargoFieldName );
-					if ( $cargoTableName !== $tableName ) {
-						// @TODO - need better handling
-						// for the case of multiple tables
-						// for the same template.
-						continue;
-					}
-				}
-				if ( array_key_exists( $cargoFieldName, $cargoFieldDescriptions ) ) {
-					$templateField->setCargoFieldData( $tableName, $cargoFieldName, $cargoFieldDescriptions[$cargoFieldName] );
-					$templateFields[$fieldName] = $templateField;
-				}
-			}
-		}
-
 		// Get all the values in this template call.
+		$templateFields = $template->getTemplateFields();
 		foreach ( $templateFields as $fieldName => $templateField ) {
 			$curFieldValue = $frame->getArgument( $fieldName );
 			if ( $curFieldValue == null ) {
@@ -107,7 +73,14 @@ class PFTemplateDisplay {
 			if ( $fieldDisplay == 'nonempty' && $fieldValue == '' ) {
 				continue;
 			}
+
 			$fieldType = $templateField->getFieldType();
+			// Ignore stuff like 'Enumeration' - we don't need it.
+			$realFieldType = $templateField->getRealFieldType();
+			if ( $realFieldType !== null ) {
+				$fieldType = $realFieldType;
+			}
+
 			$fieldLabel = $templateField->getLabel();
 			if ( $fieldLabel == null ) {
 				$fieldLabel = $fieldName;
@@ -138,7 +111,9 @@ class PFTemplateDisplay {
 				}
 				continue;
 			}
-			if ( $fieldType == 'Page' ) {
+			if ( trim( $fieldValue ) == '' ) {
+				$formattedFieldValue = '';
+			} elseif ( $fieldType == 'Page' ) {
 				if ( $templateField->getNamespace() != '' ) {
 					$fieldValue = $templateField->getNamespace() . ":$fieldValue";
 				}
@@ -147,12 +122,14 @@ class PFTemplateDisplay {
 					$formattedFieldValue = self::pageListText( $fieldValue, $templateField );
 				} else {
 					$fieldValueTitle = Title::newFromText( $fieldValue );
-					$formattedFieldValue = $linkRenderer->makeLink( $fieldValueTitle );
+					$formattedFieldValue = PFUtils::makeLink( $linkRenderer, $fieldValueTitle );
 				}
 			} elseif ( $fieldType == 'Coordinates' ) {
 				$formattedFieldValue = self::mapText( $fieldValue, $format, $parser );
 			} elseif ( $fieldType == 'Rating' ) {
 				$formattedFieldValue = self::ratingText( $fieldValue );
+			} elseif ( $fieldType == 'File' ) {
+				$formattedFieldValue = self::fileText( $fieldValue );
 			} else {
 				$formattedFieldValue = $fieldValue;
 			}
@@ -218,7 +195,7 @@ class PFTemplateDisplay {
 				$text .= ' <span class="CargoDelimiter">&bull;</span> ';
 			}
 			$title = Title::newFromText( $fieldValue );
-			$text .= CargoUtils::makeLink( $linkRenderer, $title );
+			$text .= PFUtils::makeLink( $linkRenderer, $title );
 		}
 		return $text;
 	}
@@ -231,6 +208,26 @@ class PFTemplateDisplay {
 		$text = '<span style="display: block; width: 65px; height: 13px; background: url(\'' . $url . '\') 0 0;">
 			<span style="display: block; width: ' . $rate . '%; height: 13px; background: url(\'' . $url . '\') 0 -13px;"></span>';
 		return $text;
+	}
+
+	private static function fileText( $value ) {
+		$title = Title::newFromText( $value, NS_FILE );
+		if ( $title == null || !$title->exists() ) {
+			return $value;
+		}
+		if ( method_exists( MediaWikiServices::class, 'getRepoGroup' ) ) {
+			// MediaWiki 1.34+
+			$file = MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo()->newFile( $title );
+		} else {
+			$file = wfLocalFile( $title );
+		}
+		return Linker::makeThumbLinkObj(
+			$title,
+			$file,
+			$value,
+			'',
+			'left'
+		);
 	}
 
 }

@@ -8,7 +8,8 @@
  * @ingroup PFFormInput
  */
 class PFRadioButtonInput extends PFEnumInput {
-	public static function getName() {
+
+	public static function getName(): string {
 		return 'radiobutton';
 	}
 
@@ -69,7 +70,8 @@ class PFRadioButtonInput extends PFEnumInput {
 			if ( $is_disabled ) {
 				$radiobutton_attrs['disabled'] = true;
 			}
-			if ( $possible_value === '' ) { // blank/"None" value
+			if ( $possible_value === '' ) {
+				// blank/"None" value
 				$label = wfMessage( 'pf_formedit_none' )->text();
 			} elseif (
 				array_key_exists( 'value_labels', $other_args ) &&
@@ -121,7 +123,7 @@ class PFRadioButtonInput extends PFEnumInput {
 	 * Returns the HTML code to be included in the output page for this input.
 	 * @return string
 	 */
-	public function getHtmlText() {
+	public function getHtmlText(): string {
 		return self::getHTML(
 			$this->mCurrentValue,
 			$this->mInputName,

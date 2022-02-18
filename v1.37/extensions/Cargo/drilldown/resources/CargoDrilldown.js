@@ -43,7 +43,7 @@
 		} );
 		var searchButton = new OO.ui.ButtonInputWidget( {
 			type: 'submit',
-			label: mw.msg( 'searchresultshead' ),
+			label: mw.msg( 'cargo-drilldown-search' ),
 			flags: 'progressive'
 		} );
 		var searchLayout = new OO.ui.ActionFieldLayout(
@@ -65,7 +65,7 @@
 		var autocompleteInput = new CargoSearchAutocompleteWidget( config );
 		var searchButton = new OO.ui.ButtonInputWidget( {
 			type: 'submit',
-			label: mw.msg( 'searchresultshead' ),
+			label: mw.msg( 'cargo-drilldown-search' ),
 			flags: 'progressive'
 		} );
 		var autocompleteLayout = new OO.ui.ActionFieldLayout(
@@ -83,10 +83,16 @@ jQuery( document ).ready( function () {
 	var viewport = '<meta name="viewport" content="width=device-width,initial-scale=1">';
 	$( 'head' ).append( viewport );
 
-	jQuery( '.cargoDrilldownRemoteAutocomplete' ).CDRemoteAutocomplete();
-	jQuery( '.drilldown-values-toggle' ).on( 'click', function () { jQuery( this ).toggleCDValuesDisplay(); } );
+	jQuery( '.cargoDrilldownRemoteAutocomplete' ).each( function () {
+		$( this ).CDRemoteAutocomplete();
+	} );
+	jQuery( '.drilldown-values-toggle' ).on( 'click', function () {
+		$( this ).toggleCDValuesDisplay();
+	} );
 	jQuery( '.drilldown-parent-tables-value, .drilldown-parent-filters-wrapper' ).showDifferentColors();
-	jQuery( '.cargoDrilldownFullTextSearch' ).CDFullTextSearch();
+	jQuery( '.cargoDrilldownFullTextSearch' ).each( function () {
+		$( this ).CDFullTextSearch();
+	} );
 
 	var maxWidth = window.matchMedia( '(max-width: 549px)' );
 

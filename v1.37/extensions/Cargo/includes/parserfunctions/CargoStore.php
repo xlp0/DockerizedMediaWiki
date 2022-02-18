@@ -22,8 +22,6 @@ class CargoStore {
 	 * Handles the #cargo_store parser function - saves data for one
 	 * template call.
 	 *
-	 * @global string $wgCargoDigitGroupingCharacter
-	 * @global string $wgCargoDecimalMark
 	 * @param Parser &$parser
 	 * @throws MWException
 	 */
@@ -100,6 +98,11 @@ class CargoStore {
 			if ( $curFieldValue == null ) {
 				$unescapedFieldName = str_replace( '_', ' ', $fieldName );
 				$curFieldValue = $frame->getArgument( $unescapedFieldName );
+				// For some reason, getArgument() returns false,
+				// and not null, for missing values.
+				if ( $curFieldValue === false ) {
+					$curFieldValue = null;
+				}
 			}
 			$tableFieldValues[$fieldName] = $curFieldValue;
 		}
@@ -116,7 +119,7 @@ class CargoStore {
 		// Get the declaration of the table.
 		$dbw = wfGetDB( DB_MASTER );
 		$res = $dbw->select( 'cargo_tables', 'table_schema', [ 'main_table' => $tableName ] );
-		$row = $dbw->fetchRow( $res );
+		$row = $res->fetchRow();
 		if ( $row == '' ) {
 			// This table probably has not been created yet -
 			// just exit silently.
@@ -163,7 +166,7 @@ class CargoStore {
 		$dbw = wfGetDB( DB_MASTER );
 		$res = $dbw->select( 'cargo_pages', 'page_id',
 			[ 'table_name' => $tableName, 'page_id' => $pageID ] );
-		if ( !$dbw->fetchRow( $res ) ) {
+		if ( !$res->fetchRow() ) {
 			$dbw->insert( 'cargo_pages', [ 'table_name' => $tableName, 'page_id' => $pageID ] );
 		}
 	}
@@ -191,7 +194,7 @@ class CargoStore {
 			}
 			if ( $fieldDescription->mIsUnique && $fieldValue != '' ) {
 				$res = $cdb->select( $tableName, 'COUNT(*)', [ $fieldName => $fieldValue ] );
-				$row = $cdb->fetchRow( $res );
+				$row = $res->fetchRow();
 				$numExistingValues = $row['COUNT(*)'];
 				if ( $numExistingValues == 1 ) {
 					$rowAlreadyExists = self::doesRowAlreadyExist( $cdb, $title, $tableName, $tableFieldValues, $tableSchema );
@@ -245,6 +248,9 @@ class CargoStore {
 		}
 
 		$seconds = strtotime( $dateStr );
+		if ( $seconds === false ) {
+			return [ null, null ];
+		}
 		// If the precision has already been set, then we know it
 		// doesn't include a time value - we can set the value already.
 		if ( $precision != null ) {
@@ -352,10 +358,6 @@ class CargoStore {
 		// We put the retrieval of the row ID, and the saving of the new row, into a
 		// single DB transaction, to avoid "collisions".
 		$cdb->begin();
-		if ( method_exists( $cdb, 'lockForUpdate' ) ) {
-			// MW 1.32+
-			$cdb->lockForUpdate( $tableName );
-		}
 
 		$res = $cdb->select( $tableName, 'MAX(' .
 			$cdb->addIdentifierQuotes( '_ID' ) . ') AS "ID"' );

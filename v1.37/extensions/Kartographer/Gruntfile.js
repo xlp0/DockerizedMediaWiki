@@ -6,7 +6,6 @@ module.exports = function ( grunt ) {
 	grunt.loadNpmTasks( 'grunt-contrib-watch' );
 	grunt.loadNpmTasks( 'grunt-eslint' );
 	grunt.loadNpmTasks( 'grunt-stylelint' );
-	grunt.loadNpmTasks( 'grunt-svgmin' );
 
 	grunt.initConfig( {
 		eslint: {
@@ -31,54 +30,16 @@ module.exports = function ( grunt ) {
 			tasks: 'test'
 		},
 		stylelint: {
-			all: {
-				options: {
-					syntax: 'less'
-				},
-				src: [
-					'**/*.{css,less}',
-					'!node_modules/**',
-					'!lib/**',
-					'!docs/**',
-					'!vendor/**'
-				]
-			}
-		},
-		// SVG Optimization
-		svgmin: {
 			options: {
-				js2svg: {
-					indent: '\t',
-					pretty: true
-				},
-				multipass: true,
-				plugins: [ {
-					cleanupIDs: false
-				}, {
-					removeDesc: false
-				}, {
-					removeRasterImages: true
-				}, {
-					removeTitle: false
-				}, {
-					removeViewBox: false
-				}, {
-					removeXMLProcInst: false
-				}, {
-					sortAttrs: true
-				} ]
+				syntax: 'less'
 			},
-			all: {
-				files: [ {
-					expand: true,
-					cwd: 'styles/images',
-					src: [
-						'**/*.svg'
-					],
-					dest: 'styles/images/',
-					ext: '.svg'
-				} ]
-			}
+			all: [
+				'**/*.{css,less}',
+				'!node_modules/**',
+				'!lib/**',
+				'!docs/**',
+				'!vendor/**'
+			]
 		}
 	} );
 
@@ -111,7 +72,7 @@ module.exports = function ( grunt ) {
 		} );
 	} );
 
-	grunt.registerTask( 'lint', [ 'eslint', 'stylelint', 'banana', 'svgmin' ] );
+	grunt.registerTask( 'lint', [ 'eslint', 'stylelint', 'banana' ] );
 	grunt.registerTask( 'test', [ 'lint', 'libcheck' ] );
 	grunt.registerTask( 'default', 'test' );
 };

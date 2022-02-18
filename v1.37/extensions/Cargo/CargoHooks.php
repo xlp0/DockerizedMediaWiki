@@ -1,6 +1,8 @@
 <?php
 
+use MediaWiki\Revision\RenderedRevision;
 use MediaWiki\Revision\SlotRecord;
+use MediaWiki\User\UserIdentity;
 
 /**
  * CargoHooks class
@@ -11,16 +13,19 @@ use MediaWiki\Revision\SlotRecord;
 class CargoHooks {
 
 	public static function registerExtension() {
-		global $cgScriptPath, $wgScriptPath, $wgCargoFieldTypes, $wgHooks;
+		define( 'CARGO_VERSION', '3.1' );
+	}
 
-		define( 'CARGO_VERSION', '2.8' );
+	public static function initialize() {
+		global $cgScriptPath, $wgExtensionAssetsPath, $wgCargoFieldTypes, $wgHooks;
 
 		// Script path.
-		$cgScriptPath = $wgScriptPath . '/extensions/Cargo';
+		$cgScriptPath = $wgExtensionAssetsPath . '/Cargo';
 
 		$wgCargoFieldTypes = [
 			'Page', 'String', 'Text', 'Integer', 'Float', 'Date',
-			'Datetime', 'Boolean', 'Coordinates', 'Wikitext',
+			'Start date', 'End date', 'Datetime', 'Start datetime',
+			'End datetime', 'Boolean', 'Coordinates', 'Wikitext',
 			'Searchtext', 'File', 'URL', 'Email', 'Rating'
 		];
 
@@ -32,6 +37,13 @@ class CargoHooks {
 			// MW < 1.35
 			$wgHooks['BaseTemplateToolbox'][] = "CargoPageValuesAction::addLinkOld";
 			$wgHooks['PageContentSaveComplete'][] = "CargoHooks::onPageContentSaveComplete";
+		}
+
+		if ( interface_exists( 'MediaWiki\Page\Hook\PageDeleteCompleteHook' ) ) {
+			// MW 1.37+
+			$wgHooks['PageDeleteComplete'][] = "CargoHooks::onPageDeleteComplete";
+		} else {
+			$wgHooks['ArticleDeleteComplete'][] = "CargoHooks::onArticleDeleteComplete";
 		}
 	}
 
@@ -81,11 +93,20 @@ class CargoHooks {
 			"ext.cargo.cargoquery" => [
 				'localBasePath' => $cargoDir,
 				'remoteExtPath' => 'Cargo',
-				'styles' => "libs/balloon.css",
 				'scripts' => "libs/ext.cargo.query.js",
 				'messages' => [
 					"cargo-viewdata-tablesrequired",
-					"cargo-viewdata-joinonrequired"
+					"cargo-viewdata-joinonrequired",
+					"cargo-viewdata-tablestooltip",
+					"cargo-viewdata-fieldstooltip",
+					"cargo-viewdata-wheretooltip",
+					"cargo-viewdata-joinontooltip",
+					"cargo-viewdata-groupbytooltip",
+					"cargo-viewdata-havingtooltip",
+					"cargo-viewdata-orderbytooltip",
+					"cargo-viewdata-limittooltip",
+					"cargo-viewdata-offsettooltip",
+					"cargo-viewdata-formattooltip"
 				],
 				'dependencies' => $cargoQueryDependencies
 			]
@@ -97,13 +118,15 @@ class CargoHooks {
 	/**
 	 * Add date-related messages to Global JS vars in user language
 	 *
-	 * @global int $wgCargoMapClusteringMinimum
 	 * @param array &$vars Global JS vars
 	 * @param OutputPage $out
 	 * @return bool
 	 */
 	public static function setGlobalJSVariables( array &$vars, OutputPage $out ) {
 		global $wgCargoMapClusteringMinimum;
+		global $wgCargoDefaultQueryLimit;
+
+		$vars['wgCargoDefaultQueryLimit'] = $wgCargoDefaultQueryLimit;
 
 		$vars['wgCargoMapClusteringMinimum'] = $wgCargoMapClusteringMinimum;
 
@@ -242,16 +265,70 @@ class CargoHooks {
 			// Now, delete from the "main" table.
 			$cdb->delete( $curMainTable, $cdbPageIDCheck );
 		}
-		$res3 = $dbw->select( 'cargo_tables', 'field_tables', [ 'main_table' => '_pageData' ] );
-		if ( $dbw->numRows( $res3 ) > 0 ) {
-			$cdb->delete( '_pageData', $cdbPageIDCheck );
-		}
+
+		self::deletePageFromSpecialTable( $pageID, '_pageData' );
+		// Unfortunately, once a page has been deleted we can no longer
+		// get its namespace (or can we?), so we need to call these
+		// deletion methods for all tables every time.
+		self::deletePageFromSpecialTable( $pageID, '_fileData' );
+		self::deletePageFromSpecialTable( $pageID, '_bpmnData' );
+		self::deletePageFromSpecialTable( $pageID, '_ganttData' );
 
 		// Finally, delete from cargo_pages.
 		$dbw->delete( 'cargo_pages', [ 'page_id' => $pageID ] );
+		CargoBackLinks::managePageDeletion( $pageID );
 
 		// End transaction and apply DB changes.
 		$cdb->commit();
+	}
+
+	public static function deletePageFromSpecialTable( $pageID, $specialTableName ) {
+		$cdb = CargoUtils::getDB();
+		// There's a reasonable chance that this table doesn't exist
+		// at all - if so, exit.
+		if ( !$cdb->tableExists( $specialTableName ) ) {
+			return;
+		}
+		$replacementTableName = $specialTableName . '__NEXT';
+		if ( $cdb->tableExists( $replacementTableName ) ) {
+			$specialTableName = $replacementTableName;
+		}
+
+		$cdbPageIDCheck = [ $cdb->addIdentifierQuotes( '_pageID' ) => $pageID ];
+
+		$dbr = wfGetDB( DB_REPLICA );
+		$res = $dbr->select( 'cargo_tables', 'field_tables', [ 'main_table' => $specialTableName ] );
+		$row = $dbr->fetchRow( $res );
+		$fieldTableNames = unserialize( $row['field_tables'] );
+		foreach ( $fieldTableNames as $curFieldTable ) {
+			$cdb->deleteJoin(
+				$curFieldTable,
+				$specialTableName,
+				$cdb->addIdentifierQuotes( '_rowID' ),
+				$cdb->addIdentifierQuotes( '_ID' ),
+				$cdbPageIDCheck
+			);
+		}
+		$cdb->delete( $specialTableName, $cdbPageIDCheck );
+	}
+
+	/**
+	 * Each content edit
+	 *
+	 * We use that hook to delete all reverse links entries, in case cargo_query deleted from page
+	 *
+	 * @param RenderedRevision $renderedRevision
+	 * @param UserIdentity $user
+	 * @param CommentStoreComment $summary
+	 * @param array $flags
+	 * @param Status $hookStatus
+	 *
+	 * @return bool|void
+	 */
+	public static function onMultiContentSave( RenderedRevision $renderedRevision, UserIdentity $user, CommentStoreComment $summary, $flags, Status $hookStatus ) {
+		$pageId = $renderedRevision->getRevision()->getPageId();
+		CargoBackLinks::removeBackLinks( $pageId );
+		CargoBackLinks::purgePagesThatQueryThisPage( $pageId );
 	}
 
 	/**
@@ -295,12 +372,9 @@ class CargoHooks {
 		CargoStore::$settings['origin'] = 'page save';
 		CargoUtils::parsePageForStorage( $wikiPage->getTitle(), $content->getNativeData() );
 
-		// Also, save the "page data" and (if appropriate) "file data".
-		$cdb = CargoUtils::getDB();
-		$useReplacementTable = $cdb->tableExists( '_pageData__NEXT' );
-		CargoPageData::storeValuesForPage( $wikiPage->getTitle(), $useReplacementTable, false );
-		$useReplacementTable = $cdb->tableExists( '_fileData__NEXT' );
-		CargoFileData::storeValuesForFile( $wikiPage->getTitle(), $useReplacementTable );
+		// Also, save data to any relevant "special tables", if they
+		// exist.
+		self::saveToSpecialTables( $wikiPage->getTitle() );
 
 		return true;
 	}
@@ -340,14 +414,27 @@ class CargoHooks {
 			$revisionRecord->getContent( SlotRecord::MAIN )->getNativeData()
 		);
 
-		// Also, save the "page data" and (if appropriate) "file data".
-		$cdb = CargoUtils::getDB();
-		$useReplacementTable = $cdb->tableExists( '_pageData__NEXT' );
-		CargoPageData::storeValuesForPage( $wikiPage->getTitle(), $useReplacementTable, false );
-		$useReplacementTable = $cdb->tableExists( '_fileData__NEXT' );
-		CargoFileData::storeValuesForFile( $wikiPage->getTitle(), $useReplacementTable );
+		// Also, save data to any relevant "special tables", if they
+		// exist.
+		self::saveToSpecialTables( $wikiPage->getTitle() );
 
 		return true;
+	}
+
+	public static function saveToSpecialTables( $title ) {
+		$cdb = CargoUtils::getDB();
+		$useReplacementTable = $cdb->tableExists( '_pageData__NEXT' );
+		CargoPageData::storeValuesForPage( $title, $useReplacementTable, false );
+		if ( $title->getNamespace() == NS_FILE ) {
+			$useReplacementTable = $cdb->tableExists( '_fileData__NEXT' );
+			CargoFileData::storeValuesForFile( $title, $useReplacementTable );
+		} elseif ( defined( 'FD_NS_BPMN' ) && $title->getNamespace() == FD_NS_BPMN ) {
+			$useReplacementTable = $cdb->tableExists( '_bpmnData__NEXT' );
+			CargoBPMNData::storeBPMNValues( $title, $useReplacementTable );
+		} elseif ( defined( 'FD_NS_GANTT' ) && $title->getNamespace() == FD_NS_GANTT ) {
+			$useReplacementTable = $cdb->tableExists( '_ganttData__NEXT' );
+			CargoGanttData::storeGanttValues( $title, $useReplacementTable );
+		}
 	}
 
 	/**
@@ -464,6 +551,21 @@ class CargoHooks {
 
 	/**
 	 * Deletes all Cargo data about a page, if the page has been deleted.
+	 *
+	 * Called by the MediaWiki PageDeleteComplete hook (MW 1.37+).
+	 */
+	public static function onPageDeleteComplete(
+		MediaWiki\Page\ProperPageIdentity $page, MediaWiki\Permissions\Authority $deleter, string $reason,
+		int $pageID, MediaWiki\Revision\RevisionRecord $deletedRev, ManualLogEntry $logEntry, int $archivedRevisionCount
+	) {
+		self::deletePageFromSystem( $pageID );
+		return true;
+	}
+
+	/**
+	 * Deletes all Cargo data about a page, if the page has been deleted.
+	 *
+	 * Called by the MediaWiki ArticleDeleteComplete hook.
 	 */
 	public static function onArticleDeleteComplete( &$article, User &$user, $reason, $id, $content,
 		$logEntry ) {
@@ -600,12 +702,10 @@ class CargoHooks {
 		if ( $updater->getDB()->getType() == 'mysql' || $updater->getDB()->getType() == 'sqlite' ) {
 			$updater->addExtensionTable( 'cargo_tables', __DIR__ . "/sql/Cargo.sql" );
 			$updater->addExtensionTable( 'cargo_pages', __DIR__ . "/sql/Cargo.sql" );
+			$updater->addExtensionTable( 'cargo_backlinks', __DIR__ . "/sql/cargo_backlinks.sql" );
 		} elseif ( $updater->getDB()->getType() == 'postgres' ) {
 			$updater->addExtensionUpdate( [ 'addTable', 'cargo_tables', __DIR__ . "/sql/Cargo.pg.sql", true ] );
 			$updater->addExtensionUpdate( [ 'addTable', 'cargo_pages', __DIR__ . "/sql/Cargo.pg.sql", true ] );
-		} elseif ( $updater->getDB()->getType() == 'mssql' ) {
-			$updater->addExtensionUpdate( [ 'addTable', 'cargo_tables', __DIR__ . "/sql/Cargo.mssql.sql", true ] );
-			$updater->addExtensionUpdate( [ 'addTable', 'cargo_pages', __DIR__ . "/sql/Cargo.mssql.sql", true ] );
 		}
 		return true;
 	}
@@ -654,9 +754,6 @@ class CargoHooks {
 		} elseif ( $updater->getDB()->getType() == 'postgres' ) {
 			$updater->addExtensionField( 'cargo_tables', 'field_helper_tables', __DIR__ . '/sql/cargo_tables.patch.field_helper_tables.pg.sql', true );
 			$updater->dropExtensionIndex( 'cargo_tables', 'cargo_tables_template_id', __DIR__ . '/sql/cargo_tables.patch.index_template_id.pg.sql', true );
-		} elseif ( $updater->getDB()->getType() == 'mssql' ) {
-			$updater->addExtensionField( 'cargo_tables', 'field_helper_tables', __DIR__ . '/sql/cargo_tables.patch.field_helper_tables.mssql.sql', true );
-			$updater->dropExtensionIndex( 'cargo_tables', 'cargo_tables_template_id', __DIR__ . '/sql/cargo_tables.patch.index_template_id.mssql.sql', true );
 		}
 		return true;
 	}

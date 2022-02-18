@@ -1,6 +1,7 @@
 {
 	"@metadata": {
 		"authors": [
+			"DDPAT",
 			"Dars",
 			"Movses",
 			"Nemo bis",
@@ -20,6 +21,7 @@
 	"cargo-notable": "Помилка: повинна бути вказана назва таблиці.",
 	"cargo-unknowntable": "Помилка: таблиця $1 не знайдена.",
 	"recreatedata": "Відтворити дані",
+	"recreatecargodata": "Відтворити дані",
 	"action-recreatecargodata": "відтворення даних Cargo",
 	"right-recreatecargodata": "Відтворення даних, що містяться в таблицях Cargo",
 	"action-deletecargodata": "вилучення даних Cargo",
@@ -34,8 +36,12 @@
 	"cargo-deletetableaction": "видалена таблиця $2 у Cargo",
 	"cargo-createdatatable": "Створити таблицю даних",
 	"cargo-recreatedata-desc": "Відтворити дані Cargo для цього шаблону?",
+	"cargo-recreatedata-recreatetable": "Відтворити Cargo таблицю «$1»?",
 	"cargo-recreatedata-createdata": "Створити дані Cargo для цього шаблону?",
+	"cargo-recreatedata-createtable": "Створити Cargo таблицю «$1»?",
 	"cargo-recreatedata-tablecreated": "Відтворено таблицю Cargo «$1».",
+	"cargo-recreatedata-table-creation-failed": "Не вдалося створити Cargo таблицю «$1».",
+	"cargo-recreatedata-job-creation-failed": "Не вдалося створити робочі місця для заповнення Cargo таблиці «$1».",
 	"cargo-recreatedata-replacementcreated": "Відтворена таблиця заміни для Cargo таблиці «$1».",
 	"cargo-recreatedata-success": "Дані відтворюються.",
 	"cargoquery": "Запит Cargo",
@@ -87,6 +93,7 @@
 	"cargo-cargotables-action-drilldown": "Деталізація",
 	"cargo-cargotables-action-delete": "Вилучити",
 	"cargo-cargotables-action-recreate": "Створено заново",
+	"cargo-cargotables-specialtables": "Існують такі спеціальні таблиці:",
 	"cargo-cargotables-beingpopulated": "<strong>Примітка:</strong> одна або більше цих таблиць зараз наповнюються через чергу завдань.",
 	"cargo-cargotables-tablelist": "{{PLURAL:$1|Така таблиця|Такі таблиці}} визначені:",
 	"cargo-cargotables-viewtable": "Переглянути таблицю: $1",
@@ -112,9 +119,12 @@
 	"switchcargotable": "Перейти до замінної таблиці Cargo",
 	"cargo-switchtables-confirm": "Перейти до замінної таблиці Cargo $1?",
 	"cargo-switchtables-switch": "Переключити",
+	"cargo-switchtables-success": "Заміна таблиці \"$1\" була включена.",
+	"cargotablediagram": "Схема вантажної таблиці",
 	"pagevalues": "Значення сторінок",
 	"cargo-pagevaluesfor": "Значення сторінки «$1»",
 	"cargo-pagevalues-tablevalues": "Значення «$1»",
+	"cargo-pagevalues-tableinfo-numrows": "$1 {{PLURAL:$1|рядок|рядки}} зберігаються для цієї сторінки",
 	"drilldown": "Перегляд ієрархії",
 	"cargo-drilldown-choosetable": "Вибрати таблицю",
 	"cargo-drilldown-allpages": "Усі сторінки",
@@ -148,5 +158,12 @@
 	"cargo-purgecache-failed": "Очищення кешу не вдалося",
 	"specialpages-group-cargo": "Cargo",
 	"cargo-pageschemas-cargofield": "Поле Cargo",
-	"cargo-pageschemas-tablename": "Назва таблиці:"
+	"cargo-pageschemas-tablename": "Назва таблиці:",
+	"cargo-gantt-zoomlevel": "Рівень масштабування:",
+	"cargo-gantt-hours": "Години",
+	"cargo-gantt-days": "Дні",
+	"cargo-gantt-months": "Місяці",
+	"cargo-gantt-years": "Роки",
+	"cargo-field-type": "Тип поля:",
+	"cargo-allowed-values": "Допустимі значення:"
 }

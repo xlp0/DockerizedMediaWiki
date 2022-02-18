@@ -12,15 +12,15 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 	public $mTableName;
 	public $mIsDeclared;
 
-	public function __construct( $templateTitle, $tableName, $isDeclared ) {
-		parent::__construct( 'RecreateData', 'recreatecargodata' );
+	public function __construct( $templateTitle = null, $tableName = null, $isDeclared = false ) {
+		parent::__construct( 'RecreateCargoData', 'recreatecargodata' );
 		$this->mTemplateTitle = $templateTitle;
 		$this->mTableName = $tableName;
 		$this->mIsDeclared = $isDeclared;
 	}
 
 	public function execute( $query = null ) {
-		global $wgScriptPath, $cgScriptPath;
+		global $cgScriptPath;
 
 		$this->checkPermissions();
 
@@ -28,6 +28,9 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 		$out->enableOOUI();
 		$this->setHeaders();
 
+		if ( $this->mTableName == null ) {
+			$this->mTableName = $query;
+		}
 		$tableExists = CargoUtils::tableFullyExists( $this->mTableName );
 		if ( !$tableExists ) {
 			$out->setPageTitle( $this->msg( 'cargo-createdatatable' )->parse() );
@@ -48,8 +51,8 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 			return true;
 		}
 
-		if ( empty( $this->mTemplateTitle ) ) {
-			// No template.
+		$specialTableNames = CargoUtils::specialTableNames();
+		if ( empty( $this->mTemplateTitle ) && !in_array( $this->mTableName, $specialTableNames ) ) {
 			// TODO - show an error message.
 			return true;
 		}
@@ -58,11 +61,24 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 
 		$templateData = [];
 		$dbw = wfGetDB( DB_MASTER );
-
-		$templateData[] = [
-			'name' => $this->mTemplateTitle->getText(),
-			'numPages' => $this->getNumPagesThatCallTemplate( $dbw, $this->mTemplateTitle )
-		];
+		if ( $this->mTemplateTitle === null ) {
+			if ( $this->mTableName == '_pageData' ) {
+				$conds = null;
+			} elseif ( $this->mTableName == '_fileData' ) {
+				$conds = 'page_namespace = ' . NS_FILE;
+			} elseif ( $this->mTableName == '_bpmnData' ) {
+				$conds = 'page_namespace = ' . FD_NS_BPMN;
+			} else { // if ( $this->mTableName == '_ganttData' ) {
+				$conds = 'page_namespace = ' . FD_NS_GANTT;
+			}
+			$numTotalPages = $dbw->selectField( 'page', 'COUNT(*)', $conds );
+		} else {
+			$numTotalPages = null;
+			$templateData[] = [
+				'name' => $this->mTemplateTitle->getText(),
+				'numPages' => $this->getNumPagesThatCallTemplate( $dbw, $this->mTemplateTitle )
+			];
+		}
 
 		if ( $this->mIsDeclared ) {
 			// Get all attached templates.
@@ -94,45 +110,44 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 		$text = Html::element( 'div', [
 				'hidden' => 'true',
 				'id' => 'recreateDataData',
-				// These two variables are not data-
+				// 'cargoscriptpath' is not data-
 				// specific, but this seemed like the
-				// easiest way to pass them over without
+				// easiest way to pass it over without
 				// interfering with any other pages.
-				// (Is this the best way to get the
-				// API URL?)
-				'apiurl' => $wgScriptPath . "/api.php",
 				'cargoscriptpath' => $cgScriptPath,
 				'tablename' => $this->mTableName,
+				'isspecialtable' => ( $this->mTemplateTitle == null ),
 				'isdeclared' => $this->mIsDeclared,
+				'totalpages' => $numTotalPages,
 				'viewtableurl' => $viewTableURL
 			], json_encode( $templateData ) );
 
 		// Simple form.
 		$text .= '<div id="recreateDataCanvas">' . "\n";
 		if ( $tableExists ) {
-			// Possibly disable checkbox, to avoid problems if the
-			// DB hasn't been updated for version 1.5+.
-			$indexExists = $dbw->indexExists( 'cargo_tables', 'cargo_tables_template_id' );
-			if ( $indexExists ) {
-				$text .= '<p><em>The checkbox intended to go here is temporarily disabled; please run <tt>update.php</tt> to see it.</em></p>';
-			} else {
-				$checkBox = new OOUI\FieldLayout(
-					new OOUI\CheckboxInputWidget( [
-						'name' => 'createReplacement',
-						'selected' => true,
-						'value' => 1,
-					] ),
-					[
-						'label' => $this->msg( 'cargo-recreatedata-createreplacement' )->parse(),
-						'align' => 'inline',
-						'infusable' => true,
-					]
-				);
-				$text .= Html::rawElement( 'p', null, $checkBox );
-			}
+			$checkBox = new OOUI\FieldLayout(
+				new OOUI\CheckboxInputWidget( [
+					'name' => 'createReplacement',
+					'selected' => true,
+					'value' => 1,
+				] ),
+				[
+					'label' => $this->msg( 'cargo-recreatedata-createreplacement' )->parse(),
+					'align' => 'inline',
+					'infusable' => true,
+				]
+			);
+			$text .= Html::rawElement( 'p', null, $checkBox );
 		}
-		$msg = $tableExists ? 'cargo-recreatedata-desc' : 'cargo-recreatedata-createdata';
-		$text .= Html::element( 'p', null, $this->msg( $msg )->parse() );
+
+		if ( $this->mTemplateTitle == null ) {
+			$msg = $tableExists ? 'cargo-recreatedata-recreatetable' : 'cargo-recreatedata-createtable';
+			$text .= Html::element( 'p', null, $this->msg( $msg, $this->mTableName )->parse() );
+		} else {
+			$msg = $tableExists ? 'cargo-recreatedata-desc' : 'cargo-recreatedata-createdata';
+			$text .= Html::element( 'p', null, $this->msg( $msg )->parse() );
+		}
+
 		$text .= new OOUI\ButtonInputWidget( [
 			'id' => 'cargoSubmit',
 			'label' => $this->msg( 'ok' )->parse(),
@@ -157,7 +172,7 @@ class SpecialCargoRecreateData extends UnlistedSpecialPage {
 			__METHOD__,
 			[]
 		);
-		$row = $dbw->fetchRow( $res );
+		$row = $res->fetchRow();
 		return intval( $row['total'] );
 	}
 

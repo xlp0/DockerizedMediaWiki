@@ -16,6 +16,7 @@ use GeoData\Search\CirrusNearTitleFilterFeature;
 use GeoData\Search\CoordinatesIndexField;
 use LinksUpdate;
 use LocalFile;
+use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 use MWException;
 use OutputPage;
@@ -113,7 +114,7 @@ class Hooks {
 	 * @param int $id
 	 */
 	public static function onArticleDeleteComplete( $article, User $user, $reason, $id ) {
-		$dbw = wfGetDB( DB_MASTER );
+		$dbw = wfGetDB( DB_PRIMARY );
 		$dbw->delete( 'geo_tags', [ 'gt_page_id' => $id ], __METHOD__ );
 	}
 
@@ -139,9 +140,30 @@ class Hooks {
 			$data[] = $coordFromMetadata;
 		}
 
+		if ( !$linksUpdate->mId ) {
+			$linksUpdate->mId = $linksUpdate->getTitle()->getArticleID( Title::READ_LATEST );
+		}
+		if ( !$linksUpdate->mId ) {
+			// Probably due to concurrent deletion or renaming of the page
+			$logger = LoggerFactory::getInstance( 'SecondaryDataUpdate' );
+			$logger->notice(
+				'LinksUpdate: The Title object yields no ID. Perhaps the page was deleted?',
+				[
+					'page_title' => $linksUpdate->getTitle()->getPrefixedDBkey(),
+					'cause_action' => $linksUpdate->getCauseAction(),
+					'cause_agent' => $linksUpdate->getCauseAgent()
+				]
+			);
+			// nothing to do
+			return;
+		}
 		self::doLinksUpdate( $data, $linksUpdate->mId, $ticket );
 	}
 
+	/**
+	 * @param Title $title
+	 * @return Coord|null
+	 */
 	private static function getCoordinatesIfFile( Title $title ) {
 		if ( $title->getNamespace() != NS_FILE ) {
 			return null;
@@ -186,7 +208,7 @@ class Hooks {
 		$add = [];
 		$delete = [];
 		$primary = ( isset( $coords[0] ) && $coords[0]->primary ) ? $coords[0] : null;
-		foreach ( GeoData::getAllCoordinates( $pageId, [], DB_MASTER ) as $old ) {
+		foreach ( GeoData::getAllCoordinates( $pageId, [], DB_PRIMARY ) as $old ) {
 			$delete[$old->id] = $old;
 		}
 		foreach ( $coords as $new ) {
@@ -207,7 +229,7 @@ class Hooks {
 			}
 		}
 
-		$dbw = wfGetDB( DB_MASTER );
+		$dbw = wfGetDB( DB_PRIMARY );
 		$lbFactory = $services->getDBLoadBalancerFactory();
 		$ticket = $ticket ?: $lbFactory->getEmptyTransactionTicket( __METHOD__ );
 		$batchSize = $services->getMainConfig()->get( 'UpdateRowsPerQuery' );
@@ -353,16 +375,6 @@ class Hooks {
 		unset( $result['lon'] );
 
 		return $result;
-	}
-
-	/**
-	 * Add to the tables cloned for parser testing
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ParserTestTables
-	 *
-	 * @param array &$tables The tables to duplicate structure of
-	 */
-	public static function onParserTestTables( &$tables ) {
-		$tables[] = 'geo_tags';
 	}
 
 	/**

@@ -11,6 +11,7 @@ use MWNamespace;
 use Title;
 
 class QueryGeoSearchElastic extends QueryGeoSearch {
+	/** @var array|null */
 	private $params;
 
 	/**
@@ -71,7 +72,7 @@ class QueryGeoSearchElastic extends QueryGeoSearch {
 
 		$query = new \Elastica\Query();
 		$fields = array_map(
-			function ( $prop ) {
+			static function ( $prop ) {
 				return "coordinates.$prop";
 			},
 			array_merge(
@@ -109,8 +110,13 @@ class QueryGeoSearchElastic extends QueryGeoSearch {
 		$query->setSize( $params['limit'] );
 
 		$searcher = new Searcher( $this->getUser() );
+		$status = $searcher->performSearch( $query, $namespaces, 'GeoData_spatial_search' );
+		if ( !$status->isOk() ) {
+			$this->dieStatus( $status );
+		}
 
-		$resultSet = $searcher->performSearch( $query, $namespaces, 'GeoData_spatial_search' );
+		$this->addMessagesFromStatus( $status );
+		$resultSet = $status->getValue();
 
 		if ( isset( $params['debug'] ) && $params['debug'] ) {
 			$this->addDebugInfo( $resultSet, $query );
@@ -124,11 +130,6 @@ class QueryGeoSearchElastic extends QueryGeoSearch {
 				'content' => FormatJson::encode( $data ),
 			] );
 			$this->dieDebug( __METHOD__, 'Unexpected result set returned by Elasticsearch' );
-		}
-
-		if ( $data['timed_out'] ) {
-			// only partial results returned
-			$this->addWarning( 'geodata-search-timeout' );
 		}
 
 		$ids = [];
@@ -146,11 +147,11 @@ class QueryGeoSearchElastic extends QueryGeoSearch {
 			}
 		}
 
-		usort( $coordinates, function ( $coord1, $coord2 ) {
+		usort( $coordinates, static function ( $coord1, $coord2 ) {
 			if ( $coord1->distance == $coord2->distance ) {
 				return 0;
 			}
-			return ( $coord1->distance < $coord2->distance ) ? - 1 : 1;
+			return ( $coord1->distance < $coord2->distance ) ? -1 : 1;
 		} );
 
 		if ( !count( $coordinates ) ) {
@@ -188,7 +189,7 @@ class QueryGeoSearchElastic extends QueryGeoSearch {
 				$title = $titles[$id];
 				$vals = [
 					'pageid' => intval( $coord->pageId ),
-					'ns' => intval( $title->getNamespace() ),
+					'ns' => $title->getNamespace(),
 					'title' => $title->getPrefixedText(),
 					'lat' => floatval( $coord->lat ),
 					'lon' => floatval( $coord->lon ),
@@ -254,6 +255,7 @@ class QueryGeoSearchElastic extends QueryGeoSearch {
 		if ( isset( $this->params['maxdim'] ) && $coord->dim > $this->params['maxdim'] ) {
 			return false;
 		}
+		// @phan-suppress-next-line PhanTypeArraySuspiciousNullable $params always set here
 		$primary = $this->params['primary'];
 		if ( ( $primary == 'primary' && !$coord->primary )
 			|| ( $primary == 'secondary' && $coord->primary )

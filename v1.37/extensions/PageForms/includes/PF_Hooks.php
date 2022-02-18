@@ -12,7 +12,9 @@ use MediaWiki\MediaWikiServices;
 
 class PFHooks {
 
-	// Used for caching by addToCargoTablesLinks().
+	/**
+	 * Used for caching by addToCargoTablesLinks().
+	 */
 	private static $mMultiPageEditPage = null;
 
 	public static function registerExtension() {
@@ -21,7 +23,7 @@ class PFHooks {
 			return 1;
 		}
 
-		define( 'PF_VERSION', '5.2' );
+		define( 'PF_VERSION', '5.3.4' );
 
 		$GLOBALS['wgPageFormsIP'] = dirname( __DIR__ ) . '/../';
 
@@ -136,6 +138,7 @@ class PFHooks {
 		$parser->setFunctionHook( 'arraymaptemplate', [ 'PFArrayMapTemplate', 'run' ], Parser::SFH_OBJECT_ARGS );
 
 		$parser->setFunctionHook( 'autoedit', [ 'PFAutoEdit', 'run' ] );
+		$parser->setFunctionHook( 'autoedit_rating', [ 'PFAutoEditRating', 'run' ] );
 		$parser->setFunctionHook( 'template_params', [ 'PFTemplateParams', 'run' ] );
 		$parser->setFunctionHook( 'template_display', [ 'PFTemplateDisplay', 'run' ], Parser::SFH_OBJECT_ARGS );
 
@@ -212,6 +215,7 @@ class PFHooks {
 		}
 		$smw_row->addItem( ALItem::newFromSpecialPage( 'Templates' ), 'Properties' );
 		$smw_row->addItem( ALItem::newFromSpecialPage( 'Forms' ), 'SemanticStatistics' );
+		$smw_row->addItem( ALItem::newFromSpecialPage( 'MultiPageEdit' ) );
 		$smw_admin_row->addItem( ALItem::newFromSpecialPage( 'CreateClass' ), 'SMWAdmin' );
 		if ( class_exists( 'PFCreateProperty' ) ) {
 			$smw_admin_row->addItem( ALItem::newFromSpecialPage( 'CreateProperty' ), 'SMWAdmin' );
@@ -250,18 +254,17 @@ class PFHooks {
 	 *
 	 * @param array &$actionLinks Action links
 	 * @param string $tableName Cargo table name
-	 * @param bool $isReplacementTable Whether this table iss a replacement table
+	 * @param bool $isReplacementTable Whether this table is a replacement table
 	 * @param bool $hasReplacementTable Whether this table has a replacement table
-	 * @param string[] $templatesThatDeclareTables An array
-	 * @param string[] $templatesThatAttachToTables An array
+	 * @param int[][] $templatesThatDeclareTables
+	 * @param string[] $templatesThatAttachToTables
+	 * @param User|null $user The current user
 	 *
 	 * @return bool
 	 *
 	 * @since 4.4
 	 */
-	public static function addToCargoTablesLinks( &$actionLinks, $tableName, $isReplacementTable, $hasReplacementTable, $templatesThatDeclareTables, $templatesThatAttachToTables ) {
-		global $wgUser;
-
+	public static function addToCargoTablesLinks( &$actionLinks, $tableName, $isReplacementTable, $hasReplacementTable, $templatesThatDeclareTables, $templatesThatAttachToTables, $user = null ) {
 		// If it has a "replacement table", it's read-only and can't
 		// be edited (though the replacement table can).
 		if ( $hasReplacementTable ) {
@@ -269,7 +272,12 @@ class PFHooks {
 		}
 
 		// Check permissions.
-		if ( !$wgUser->isAllowed( 'multipageedit' ) ) {
+		if ( $user == null ) {
+			// For Cargo versions < 3.1.
+			$user = RequestContext::getMain()->getUser();
+		}
+
+		if ( !$user->isAllowed( 'multipageedit' ) ) {
 			return true;
 		}
 		// Only put in an "Edit" link if there's exactly one template
@@ -318,22 +326,23 @@ class PFHooks {
 	 * @param string $tableName Cargo table name
 	 * @param bool $isReplacementTable Whether this table iss a replacement table
 	 * @param bool $hasReplacementTable Whether this table has a replacement table
-	 * @param string[] $templatesThatDeclareTables An array
-	 * @param string[] $templatesThatAttachToTables An array
+	 * @param int[][] $templatesThatDeclareTables
+	 * @param string[] $templatesThatAttachToTables
 	 * @param string[] $actionList
+	 * @param User|null $user The current user
 	 *
 	 * @return bool
 	 *
 	 * @since 4.8.1
 	 */
-	public static function addToCargoTablesRow( $cargoTablesPage, &$actionLinks, $tableName, $isReplacementTable, $hasReplacementTable, $templatesThatDeclareTables, $templatesThatAttachToTables, $actionList ) {
+	public static function addToCargoTablesRow( $cargoTablesPage, &$actionLinks, $tableName, $isReplacementTable, $hasReplacementTable, $templatesThatDeclareTables, $templatesThatAttachToTables, $actionList, $user = null ) {
 		$cargoTablesPage->getOutput()->addModuleStyles( [ 'oojs-ui.styles.icons-editing-core' ] );
 
 		// For the sake of simplicity, this function basically just
 		// wraps around the previous hook function, for Cargo <= 2.4.
 		// That's why there's this awkward behavior of parsing links
 		// to get their URL. Hopefully this won't cause problems.
-		self::addToCargoTablesLinks( $actionLinks, $tableName, $isReplacementTable, $hasReplacementTable, $templatesThatDeclareTables, $templatesThatAttachToTables );
+		self::addToCargoTablesLinks( $actionLinks, $tableName, $isReplacementTable, $hasReplacementTable, $templatesThatDeclareTables, $templatesThatAttachToTables, $user );
 
 		if ( array_key_exists( 'edit', $actionLinks ) ) {
 			preg_match( '/href="(.*?)"/', $actionLinks['edit'], $matches );
@@ -348,7 +357,7 @@ class PFHooks {
 	 * Disable TinyMCE if this is a form definition page, or a form-editable page.
 	 *
 	 * @param Title $title The page Title object
-	 * @return Whether or not to disable TinyMCE
+	 * @return bool Whether or not to disable TinyMCE
 	 */
 	public static function disableTinyMCE( $title ) {
 		if ( $title->getNamespace() == PF_NS_FORM ) {
@@ -380,12 +389,7 @@ class PFHooks {
 		// Needed in case there are any OOUI-based input types in the form.
 		$wgOut->enableOOUI();
 
-		if ( method_exists( $wgOut, 'parseAsInterface' ) ) {
-			// MW 1.32+
-			$previewNote = $wgOut->parseAsInterface( wfMessage( 'pf-preview-note' )->text() );
-		} else {
-			$previewNote = $wgOut->parse( wfMessage( 'pf-preview-note' )->text() );
-		}
+		$previewNote = $wgOut->parseAsInterface( wfMessage( 'pf-preview-note' )->text() );
 		// The "pfForm" ID is there so the form JS will be activated.
 		$editpage->previewTextAfterContent .= Html::element( 'h2', null, wfMessage( 'pf-preview-header' )->text() ) . "\n" .
 			'<div id="pfForm" class="previewnote" style="font-weight: bold">' . $previewNote . "</div>\n<hr />\n";
@@ -471,11 +475,8 @@ class PFHooks {
 	 * @return bool
 	 */
 	public static function setPostEditCookie( WikiPage $wikiPage, MediaWiki\User\UserIdentity $user, string $summary, int $flags,
-		MediaWiki\Revision\RevisionRecord $revisionRecord, MediaWiki\Storage\EditResult $editResult ) {
-		if ( $revisionRecord == null ) {
-			return true;
-		}
-
+		MediaWiki\Revision\RevisionRecord $revisionRecord, MediaWiki\Storage\EditResult $editResult
+	) {
 		// Have this take effect only if the save came from a form -
 		// we need to use a global variable to determine that.
 		global $wgPageFormsFormPrinter;

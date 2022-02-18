@@ -2,6 +2,7 @@
 
 use MediaWiki\MediaWikiServices;
 use PageImages\PageImages;
+use Wikimedia\Rdbms\IDatabase;
 
 class DynamicPageListHooks {
 
@@ -29,6 +30,7 @@ class DynamicPageListHooks {
 		if ( $wgDLPMaxCacheTime !== false ) {
 			$mwParser->getOutput()->updateCacheExpiry( $wgDLPMaxCacheTime );
 		}
+		$mwParser->addTrackingCategory( 'intersection-category' );
 
 		$countSet = false;
 		$count = 0;
@@ -52,7 +54,8 @@ class DynamicPageListHooks {
 		$orderMethod = 'categoryadd';
 		$order = 'descending';
 		$redirects = 'exclude';
-		$stable = $quality = 'include';
+		$stable = 'include';
+		$quality = 'include';
 		$flaggedRevs = false;
 
 		$namespaceFiltering = false;
@@ -63,6 +66,7 @@ class DynamicPageListHooks {
 		$googleHack = false;
 
 		$suppressErrors = false;
+		$suppressPCErrors = false;
 		$showNamespace = true;
 		$addFirstCategoryDate = false;
 		$ignoreSubpages = false;
@@ -73,14 +77,14 @@ class DynamicPageListHooks {
 		$categories = [];
 		$excludeCategories = [];
 
-		$parameters = explode( "\n", $input );
-
 		$services = MediaWikiServices::getInstance();
 		$parser = $services->getParserFactory()->create();
-		$parser->setTitle( $mwParser->getTitle() );
-		$poptions = new ParserOptions( $mwParser->getUser() );
+		$parser->setPage( $mwParser->getPage() );
+		$poptions = new ParserOptions( $mwParser->getUserIdentity() );
 
 		$contLang = $services->getContentLanguage();
+
+		$parameters = explode( "\n", $input );
 		foreach ( $parameters as $parameter ) {
 			$paramField = explode( '=', $parameter, 2 );
 			if ( count( $paramField ) < 2 ) {
@@ -94,20 +98,18 @@ class DynamicPageListHooks {
 						NS_CATEGORY,
 						$parser->transformMsg( $arg, $poptions, $mwParser->getTitle() )
 					);
-					if ( $title === null ) {
-						break;
+					if ( $title !== null ) {
+						$categories[] = $title;
 					}
-					$categories[] = $title;
 					break;
 				case 'notcategory':
 					$title = Title::makeTitleSafe(
 						NS_CATEGORY,
 						$parser->transformMsg( $arg, $poptions, $mwParser->getTitle() )
 					);
-					if ( $title === null ) {
-						break;
+					if ( $title !== null ) {
+						$excludeCategories[] = $title;
 					}
-					$excludeCategories[] = $title;
 					break;
 				case 'namespace':
 					$ns = $contLang->getNsIndex( $arg );
@@ -123,11 +125,7 @@ class DynamicPageListHooks {
 						// writing things like namespace=main
 						// so be careful when changing this code.
 						$namespaceIndex = intval( $arg );
-						if ( $namespaceIndex >= 0 ) {
-							$namespaceFiltering = true;
-						} else {
-							$namespaceFiltering = false;
-						}
+						$namespaceFiltering = ( $namespaceIndex >= 0 );
 					}
 					break;
 				case 'count':
@@ -196,37 +194,23 @@ class DynamicPageListHooks {
 					$galleryCaption = $parser->transformMsg( $arg, $poptions, $mwParser->getTitle() );
 					break;
 				case 'galleryshowfilesize':
-					switch ( $arg ) {
-						case 'no':
-						case 'false':
-							$galleryFileSize = false;
-							break;
-						case 'true':
-						default:
-							$galleryFileSize = true;
+					if ( $arg == 'no' || $arg == 'false' ) {
+						$galleryFileSize = false;
+					} else {
+						$galleryFileSize = true;
 					}
 					break;
 				case 'galleryshowfilename':
-					switch ( $arg ) {
-						case 'no':
-						case 'false':
-							$galleryFileName = false;
-							break;
-						case 'true':
-						default:
-							$galleryFileName = true;
-							break;
+					if ( $arg == 'no' || $arg == 'false' ) {
+						$galleryFileName = false;
+					} else {
+						$galleryFileName = true;
 					}
-					break;
 				case 'order':
-					switch ( $arg ) {
-						case 'ascending':
-							$order = 'ascending';
-							break;
-						case 'descending':
-						default:
-							$order = 'descending';
-							break;
+					if ( $arg == 'ascending' ) {
+						$order = 'ascending';
+					} else {
+						$order = 'descending';
 					}
 					break;
 				case 'ordermethod':
@@ -300,8 +284,11 @@ class DynamicPageListHooks {
 					}
 					break;
 				case 'suppresserrors':
-					if ( $arg == 'true' ) {
+					if ( $arg == 'true' || $arg === 'all' ) {
 						$suppressErrors = true;
+						if ( $arg === 'all' ) {
+							$suppressPCErrors = true;
+						}
 					} else {
 						$suppressErrors = false;
 					}
@@ -314,7 +301,7 @@ class DynamicPageListHooks {
 						$addFirstCategoryDate = true;
 						$dateFormat = $arg;
 						if ( strlen( $dateFormat ) == 2 ) {
-							$dateFormat = $dateFormat . 'y'; # DateFormatter does not support no year. work around
+							$dateFormat .= 'y'; # DateFormatter does not support no year. work around
 							$stripYear = true;
 						}
 					} else {
@@ -382,7 +369,7 @@ class DynamicPageListHooks {
 		}
 
 		// build the SQL query
-		$dbr = wfGetDB( DB_REPLICA );
+		$dbr = wfGetDB( DB_REPLICA, 'vslow' );
 		$tables = [ 'page' ];
 		$fields = [ 'page_namespace', 'page_title' ];
 		$where = [];
@@ -407,41 +394,29 @@ class DynamicPageListHooks {
 			$tables[] = 'flaggedpages';
 			$join['flaggedpages'] = [ 'LEFT JOIN', 'page_id = fp_page_id' ];
 
-			switch ( $stable ) {
-				case 'only':
-					$where[] = 'fp_stable IS NOT NULL';
-					break;
-				case 'exclude':
-					$where['fp_stable'] = null;
-					break;
+			if ( $stable == 'only' ) {
+				$where[] = 'fp_stable IS NOT NULL';
+			} elseif ( $stable == 'exclude' ) {
+				$where['fp_stable'] = null;
 			}
 
-			switch ( $quality ) {
-				case 'only':
-					$where[] = 'fp_quality >= 1';
-					break;
-				case 'exclude':
-					$where[] = 'fp_quality = 0 OR fp_quality IS NULL';
-					break;
+			if ( $quality == 'only' ) {
+				$where[] = 'fp_quality >= 1';
+			} elseif ( $quality == 'exclude' ) {
+				$where[] = 'fp_quality = 0 OR fp_quality IS NULL';
 			}
 		}
 
-		switch ( $redirects ) {
-			case 'only':
-				$where['page_is_redirect'] = 1;
-				break;
-			case 'exclude':
-				$where['page_is_redirect'] = 0;
-				break;
+		if ( $redirects == 'only' ) {
+			$where['page_is_redirect'] = 1;
+		} elseif ( $redirects == 'exclude' ) {
+			$where['page_is_redirect'] = 0;
 		}
 
 		if ( $ignoreSubpages ) {
 			$where[] = "page_title NOT " .
 				$dbr->buildLike( $dbr->anyString(), '/', $dbr->anyString() );
 		}
-
-		$currentTableNumber = 1;
-		$categorylinks = 'categorylinks';
 
 		if ( $useGallery && $pageImagesEnabled ) {
 			$tables['pp1'] = 'page_props';
@@ -465,6 +440,9 @@ class DynamicPageListHooks {
 			$fields['pageimage_nonfree'] = 'pp2.pp_value';
 		}
 
+		// Alias each category as c1, c2, etc.
+		$currentTableNumber = 1;
+		$categorylinks = 'categorylinks';
 		foreach ( $categories as $cat ) {
 			$join["c$currentTableNumber"] = [
 				'INNER JOIN',
@@ -510,9 +488,6 @@ class DynamicPageListHooks {
 			case 'categorysortkey':
 				$sqlSort = "c1.cl_type $sqlOrder, c1.cl_sortkey";
 				break;
-			case 'popularity':
-				$sqlSort = 'page_counter';
-				break;
 			case 'categoryadd':
 				$sqlSort = 'c1.cl_timestamp';
 				break;
@@ -530,10 +505,21 @@ class DynamicPageListHooks {
 			$options['OFFSET'] = $offset;
 		}
 
-		// process the query
-		$res = $dbr->select( $tables, $fields, $where, __METHOD__, $options, $join );
-
-		if ( $dbr->numRows( $res ) == 0 ) {
+		// To track down what page offending queries are on.
+		// For some reason, $fname doesn't get escaped by our code?!
+		$pageName = str_replace( [ '*', '/' ], '-', $mwParser->getTitle()->getPrefixedDBkey() );
+		$rows = self::processQuery( $pageName, $dbr, $tables, $fields, $where, $options, $join );
+		if ( $rows === false ) {
+			// This error path is very fast (We exit immediately if poolcounter is full)
+			// Thus it should be safe to try again in ~5 minutes.
+			$mwParser->getOutput()->updateCacheExpiry( 4 * 60 + mt_rand( 0, 120 ) );
+			// Pool counter all threads in use.
+			if ( $suppressPCErrors ) {
+				return '';
+			}
+			return wfMessage( 'intersection_pcerror' )->inContentLanguage()->escaped();
+		}
+		if ( count( $rows ) == 0 ) {
 			if ( $suppressErrors ) {
 				return '';
 			}
@@ -541,10 +527,6 @@ class DynamicPageListHooks {
 			return wfMessage( 'intersection_noresults' )->inContentLanguage()->escaped();
 		}
 
-		// start unordered list
-		$output = $startList . "\n";
-
-		$categoryDate = '';
 		$df = null;
 		if ( $dateFormat !== '' && $addFirstCategoryDate ) {
 			$df = DateFormatter::getInstance();
@@ -554,13 +536,14 @@ class DynamicPageListHooks {
 		// for each result, or something similar if the list uses other
 		// startlist/endlist
 		$articleList = [];
-		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
-		foreach ( $res as $row ) {
+		$linkRenderer = $services->getLinkRenderer();
+		foreach ( $rows as $row ) {
 			$title = Title::makeTitle( $row->page_namespace, $row->page_title );
+			$categoryDate = '';
 			if ( $addFirstCategoryDate ) {
 				if ( $dateFormat !== '' ) {
 					// this is a tad ugly
-					// use DateFormatter, and support disgarding year.
+					// use DateFormatter, and support discarding year.
 					$categoryDate = wfTimestamp( TS_ISO_8601, $row->cl_timestamp );
 					if ( $stripYear ) {
 						$categoryDate = $contLang->getMonthName( (int)substr( $categoryDate, 5, 2 ) )
@@ -580,7 +563,6 @@ class DynamicPageListHooks {
 			}
 
 			$query = [];
-
 			if ( $googleHack ) {
 				$query['dpl_id'] = intval( $row->page_id );
 			}
@@ -592,7 +574,6 @@ class DynamicPageListHooks {
 			}
 
 			if ( $useGallery ) {
-				$file = null;
 				$link = '';
 				if ( $galleryFileName ) {
 					$link = $linkRenderer->makeKnownLink(
@@ -602,6 +583,7 @@ class DynamicPageListHooks {
 					) . "\n";
 				}
 
+				$file = null;
 				if ( $title->getNamespace() !== NS_FILE && $pageImagesEnabled ) {
 					$file = $row->pageimage_free ?: $row->pageimage_nonfree;
 				}
@@ -635,7 +617,6 @@ class DynamicPageListHooks {
 			}
 		}
 
-		// end unordered list
 		if ( $useGallery ) {
 			$gallery->setHideBadImages();
 			$gallery->setShowFilename( false );
@@ -652,18 +633,96 @@ class DynamicPageListHooks {
 			if ( $galleryCaption !== '' ) {
 				$gallery->setCaption( $galleryCaption ); // gallery class escapes string
 			}
-			$output = $gallery->toHtml();
-		} else {
-			$output .= $startItem;
-			if ( $inlineMode ) {
-				$output .= $contLang->commaList( $articleList );
-			} else {
-				$output .= implode( "$endItem \n$startItem", $articleList );
-			}
-			$output .= $endItem;
-			$output .= $endList . "\n";
+			return $gallery->toHtml();
 		}
 
+		// start unordered list
+		$output = $startList . "\n" . $startItem;
+		if ( $inlineMode ) {
+			$output .= $contLang->commaList( $articleList );
+		} else {
+			$output .= implode( "$endItem \n$startItem", $articleList );
+		}
+		$output .= $endItem . $endList . "\n";
+		// end unordered list
+
 		return $output;
+	}
+
+	/**
+	 * @param string $pageName Name of page (for logging purposes)
+	 * @param IDatabase $dbr
+	 * @param array $tables
+	 * @param array $fields
+	 * @param array $where
+	 * @param array $options
+	 * @param array $join
+	 * @return array|bool List of stdObj's or false on poolcounter being full
+	 */
+	public static function processQuery(
+		string $pageName,
+		IDatabase $dbr,
+		array $tables,
+		array $fields,
+		array $where,
+		array $options,
+		array $join
+	) {
+		global $wgDLPQueryCacheTime;
+		$qname = __METHOD__ . ' - ' . $pageName;
+
+		$doQuery = static function () use ( $qname, $dbr, $tables, $fields, $where, $options, $join ) {
+			$res = $dbr->select( $tables, $fields, $where, $qname, $options, $join );
+			// Serializing a ResultWrapper doesn't work.
+			return iterator_to_array( $res );
+		};
+
+		// We're probably already inside a pool-counter lock due to parse, so nowait.
+		$poolCounterKey = "nowait:dpl-query:" . WikiMap::getCurrentWikiId();
+		// The goal here is to have an emergency shutoff break to prevent a query
+		// pile-up if a large number of slow DPL queries are run at once.
+		// This is meant to be in total across the wiki. The WANObjectCache stuff below this
+		// is meant to make the somewhat common case of the same DPL query being run multiple
+		// times due to template usage fast, where this is not meant to speed things up, but
+		// to have an emergency stop before things get out of hand.
+		// Recommended config is probably something like 15 workers normally and
+		// 5 workers if DB seems to have excessive load.
+		$worker = new PoolCounterWorkViaCallback( 'DPL', $poolCounterKey, [
+			'doWork' => $doQuery,
+		] );
+
+		if ( $wgDLPQueryCacheTime <= 0 ) {
+			return $worker->execute();
+		}
+
+		// This is meant to guard against the case where a lot of pages get parsed at once
+		// all with the same query. See T262240. This should be a short cache, e.g. 120 seconds.
+		$cache = MediaWikiServices::getInstance()->getMainWANObjectCache();
+		// Don't use actual input as hash, because some per-page parsing can happen to options.
+		$query = $dbr->selectSQLText( $tables, $fields, $where, '', $options, $join );
+		return $cache->getWithSetCallback(
+			$cache->makeKey( "DPLQuery", hash( "sha256", $query ) ),
+			$wgDLPQueryCacheTime,
+			static function ( $oldVal, &$ttl, &$setOpts ) use ( $worker, $dbr ){
+				// TODO: Maybe could do something like check max(cl_timestamp) in
+				// category and the count in category.cat_pages, and invalidate if
+				// it appears like someone added or removed something from the category.
+				$setOpts += Database::getCacheSetOptions( $dbr );
+				$res = $worker->execute();
+				if ( $res === false ) {
+					// Do not cache errors.
+					$ttl = WANObjectCache::TTL_UNCACHEABLE;
+					// If we have oldVal, prefer it to error
+					if ( is_array( $oldVal ) ) {
+						return $oldVal;
+					}
+				}
+				return $res;
+			},
+			[
+				'lowTTL' => min( $cache::TTL_MINUTE, floor( $wgDLPQueryCacheTime * 0.75 ) ),
+				'pcTTL' => min( $cache::TTL_PROC_LONG, $wgDLPQueryCacheTime )
+			]
+		);
 	}
 }

@@ -32,7 +32,9 @@ if ( getenv( 'MW_INSTALL_PATH' ) ) {
 	require_once __DIR__ . '/../../../maintenance/Maintenance.php';
 }
 
-$maintClass = "SetCargoGanttData";
+use MediaWiki\MediaWikiServices;
+
+$maintClass = SetCargoGanttData::class;
 
 class SetCargoGanttData extends Maintenance {
 
@@ -40,7 +42,7 @@ class SetCargoGanttData extends Maintenance {
 		parent::__construct();
 
 		$this->requireExtension( 'Cargo' );
-		$this->addDescription( "Stores a set of data for each page in the BPMN namespace (defined by Flex Diagrams), for use within Cargo queries." );
+		$this->addDescription( "Stores a set of data for each page in the Gantt namespace (defined by Flex Diagrams), for use within Cargo queries." );
 		$this->addOption( "delete", "Delete the Gantt data DB table(s)", false, false );
 		$this->addOption( 'replacement', 'Put all new data into a replacement table, to be switched in later' );
 	}
@@ -49,7 +51,8 @@ class SetCargoGanttData extends Maintenance {
 		$createReplacement = $this->hasOption( 'replacement' );
 		$ganttDataTable = $createReplacement ? '_ganttData__NEXT' : '_ganttData';
 
-		$dbr = wfGetDB( DB_REPLICA );
+		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
+		$dbr = $lb->getConnectionRef( DB_REPLICA );
 		$res = $dbr->select( 'cargo_tables', [ 'field_tables', 'field_helper_tables' ],
 			[ 'main_table' => $ganttDataTable ] );
 
