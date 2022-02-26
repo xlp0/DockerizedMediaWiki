@@ -57,8 +57,8 @@ RUN chown -R www-data:www-data  ./compiled_templates/
 
 # for 3D
 WORKDIR ${ResourceBasePath}/extensions/3D
-RUN composer install
 RUN composer update --no-dev
+RUN composer install
 
 # copy logos
 COPY ./resources/xlp.png ${ResourceBasePath}/resources/assets/xlp.png
