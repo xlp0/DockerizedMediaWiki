@@ -1,5 +1,5 @@
 CURRENT_TIME = $(shell date +'%y.%m.%d %H:%M:%S')
-CURRENT_TAG = "v1.37.1.build.2"
+CURRENT_TAG = "v1.37.1.build.3"
 
 build: 
 	docker build -t emhavis/pkc_semanticwiki:${CURRENT_TAG} --build-arg BUILD_SMW=true .
@@ -25,6 +25,12 @@ commitToGitHub:
 	git add .
 	git commit -m 'Created Makefile for the first time, and committed at ${CURRENT_TIME}'
 	git push
+
+buildMulti:
+	docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t emhavis/pkc_semanticwiki:${CURRENT_TAG} --push . 
+
+buildMultiLocal:
+	docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t localhost:5000/pkc_semanticwiki:${CURRENT_TAG} --push .
 
 
 # docker build -t emhavis/pkc_semanticwiki:v1.37.1.build.2 --build-arg BUILD_SMW=true .
